@@ -78,9 +78,11 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return Row(
       children: [
         Image.asset(
-          'assets/images/logo_Neogenesis.png',
+          'assets/images/logo_neogenesis.png',
           height: 36,
           fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
         ),
         const SizedBox(width: 10),
         RichText(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
+import '../../main.dart';
 
 class LoginModal extends StatefulWidget {
   const LoginModal({super.key});
@@ -13,6 +15,53 @@ class _LoginModalState extends State<LoginModal> {
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signIn() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Ingresa tu correo y contraseña.', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await supabase.auth.signInWithPassword(email: email, password: password);
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Inicio de sesión exitoso.'),
+          backgroundColor: AppTheme.primaryGreen,
+        ),
+      );
+    } on AuthException catch (error) {
+      _showMessage(error.message, isError: true);
+    } catch (_) {
+      _showMessage('No se pudo iniciar sesión.', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showMessage(String message, {required bool isError}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : AppTheme.primaryGreen,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +84,11 @@ class _LoginModalState extends State<LoginModal> {
                       'assets/images/logo_neogenesis.png',
                       height: 120,
                       fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.auto_awesome,
+                        size: 100,
+                        color: AppTheme.primaryGreen,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     RichText(
@@ -176,10 +230,7 @@ class _LoginModalState extends State<LoginModal> {
                       width: double.infinity,
                       height: 45,
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Lógica de autenticación futura
-                          Navigator.pop(context);
-                        },
+                        onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryGreen,
                           foregroundColor: Colors.white,
@@ -187,10 +238,19 @@ class _LoginModalState extends State<LoginModal> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text(
-                          'Iniciar sesión',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Iniciar sesión',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                       ),
                     ),
                   ],
