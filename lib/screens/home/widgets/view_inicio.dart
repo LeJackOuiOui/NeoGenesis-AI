@@ -25,7 +25,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
           'Potencia el desarrollo de tu equipo con herramientas inteligentes.',
     },
     {
-      'image': 'assets/images/logo_Neogenesis.png',
+      'image': 'assets/images/logo_neogenesis.png',
       'title': 'Nómina Autónoma y Precisa',
       'subtitle': 'Automatiza procesos complejos y reduce tiempos de cálculo.',
     },
@@ -397,6 +397,11 @@ class _ViewInicioState extends State<ViewInicio> {
                     width: 240,
                     height: 240,
                     fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.auto_awesome,
+                      size: 180,
+                      color: AppTheme.primaryGreen,
+                    ),
                   ),
                 ],
               ),
