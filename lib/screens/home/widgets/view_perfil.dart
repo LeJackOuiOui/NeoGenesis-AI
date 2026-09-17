@@ -22,11 +22,12 @@ class _ViewPerfilState extends State<ViewPerfil> {
 
   // Opciones para el cargo seleccionable
   final List<String> _listaCargos = [
-    'Analista de Talento Humano',
-    'Desarrollador Full Stack',
-    'Líder de Selección',
-    'Diseñador UX/UI',
-    'Especialista en Nómina',
+    'Analista de Recursos Humanos',
+    'Reclutador',
+    'Responsable de Nómina',
+    'Coordinador de Recursos Humanos',
+    'Asistente de Recursos Humanos',
+    'Empleado',
   ];
 
   @override
@@ -42,11 +43,22 @@ class _ViewPerfilState extends State<ViewPerfil> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      final data = await supabase
+        final data = await supabase
           .from('profiles')
           .select()
           .eq('id', userId)
-          .single();
+          .maybeSingle();
+
+        if (data == null) {
+        final metadata = supabase.auth.currentUser?.userMetadata ?? {};
+        _nombreController.text = metadata['full_name']?.toString() ?? '';
+        _correoController.text = supabase.auth.currentUser?.email ?? '';
+        _telefonoController.text = metadata['phone']?.toString() ?? '';
+        _cargoSeleccionado = _listaCargos.contains(metadata['position'])
+          ? metadata['position'] as String
+          : null;
+        return;
+        }
 
       _nombreController.text = data['nombre'] ?? '';
       _correoController.text = data['correo'] ?? '';

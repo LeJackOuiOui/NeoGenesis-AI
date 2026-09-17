@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
 import '../../main.dart';
@@ -16,6 +17,7 @@ class _LoginModalState extends State<LoginModal> {
   bool _rememberMe = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -25,7 +27,9 @@ class _LoginModalState extends State<LoginModal> {
   }
 
   Future<void> _signIn() async {
-    final email = _emailController.text.trim();
+    if (!_formKey.currentState!.validate()) return;
+
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
@@ -132,7 +136,9 @@ class _LoginModalState extends State<LoginModal> {
               child: Container(
                 color: Colors.white,
                 padding: const EdgeInsets.all(32),
-                child: Column(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -152,8 +158,10 @@ class _LoginModalState extends State<LoginModal> {
                     const SizedBox(height: 24),
 
                     // Campo Correo
-                    TextField(
+                    TextFormField(
                       controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
                       decoration: InputDecoration(
                         hintText: 'Correo electrónico',
                         prefixIcon: const Icon(Icons.email_outlined, size: 20),
@@ -165,11 +173,18 @@ class _LoginModalState extends State<LoginModal> {
                           vertical: 12,
                         ),
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return 'Ingresa tu correo';
+                        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
+                          return 'Ingresa un correo válido';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
                     // Campo Contraseña
-                    TextField(
+                    TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
@@ -194,6 +209,9 @@ class _LoginModalState extends State<LoginModal> {
                           vertical: 12,
                         ),
                       ),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Ingresa tu contraseña'
+                          : null,
                     ),
                     const SizedBox(height: 8),
 
@@ -253,7 +271,8 @@ class _LoginModalState extends State<LoginModal> {
                               ),
                       ),
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
