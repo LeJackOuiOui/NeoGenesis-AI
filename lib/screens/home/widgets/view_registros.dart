@@ -663,17 +663,11 @@ class _ViewRegistrosState extends State<ViewRegistros> {
   Future<void> _showNewEmployeeDialog() async {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
+    final phoneController = TextEditingController();
     final passwordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    var selectedRole = 'Empleado';
     var selectedCargo = 'Analista de Recursos Humanos';
-    const roles = [
-      'Administrador',
-      'Reclutador',
-      'Responsable RRHH',
-      'Empleado',
-    ];
     const cargos = [
       'Analista de Recursos Humanos',
       'Reclutador',
@@ -719,17 +713,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       inputFormatters: [
                         FilteringTextInputFormatter.deny(RegExp(r'\s')),
                       ],
-                      decoration: InputDecoration(
-                        hintText: 'Correo electrónico',
+                      decoration: const InputDecoration(
                         labelText: 'Correo electrónico *',
-                        prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -737,6 +722,21 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         }
                         if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
                           return 'Ingresa un correo válido';
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Teléfono *'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return 'Ingresa el teléfono';
+                        if (value.replaceAll(RegExp(r'\D'), '').length < 7) {
+                          return 'Ingresa un teléfono válido';
                         }
                         return null;
                       },
@@ -807,16 +807,6 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         }
                       },
                     ),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedRole,
-                      decoration: const InputDecoration(labelText: 'Rol *'),
-                      items: roles
-                          .map((role) => DropdownMenuItem(value: role, child: Text(role)))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) setDialogState(() => selectedRole = value);
-                      },
-                    ),
                   ],
                 ),
               ),
@@ -838,6 +828,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         final result = await _apiService.registerHrUser(
                           nombre: nameController.text,
                           correo: emailController.text,
+                          telefono: phoneController.text,
                           cargo: selectedCargo,
                           rol: "Empleado",
                           password: passwordController.text,
@@ -870,11 +861,11 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                             backgroundColor: Colors.redAccent,
                           ),
                         );
-                      } catch (_) {
+                      } catch (error) {
                         setDialogState(() => isSaving = false);
                         messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('No se pudo crear el usuario ni enviar sus credenciales.'),
+                          SnackBar(
+                            content: Text('No se pudo crear el usuario: $error'),
                             backgroundColor: Colors.redAccent,
                           ),
                         );
@@ -896,6 +887,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
 
     nameController.dispose();
     emailController.dispose();
+    phoneController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
   }

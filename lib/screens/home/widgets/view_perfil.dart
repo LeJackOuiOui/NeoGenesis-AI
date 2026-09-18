@@ -61,7 +61,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
         }
 
       _nombreController.text = data['nombre'] ?? '';
-      _correoController.text = data['correo'] ?? '';
+      _correoController.text = data['email'] ?? data['correo'] ?? '';
       _telefonoController.text = data['telefono'] ?? '';
       _avatarUrl = data['avatar_url'];
 
@@ -89,7 +89,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
       await supabase.from('profiles').upsert({
         'id': userId,
         'nombre': _nombreController.text,
-        'correo': _correoController.text,
+        'email': _correoController.text,
         'cargo': _cargoSeleccionado,
         'telefono': _telefonoController.text,
         'avatar_url': _avatarUrl,

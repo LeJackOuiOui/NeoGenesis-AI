@@ -10,7 +10,7 @@ begin
   insert into public.profiles (
     id,
     nombre,
-    correo,
+    email,
     telefono,
     cargo,
     role,
@@ -27,7 +27,7 @@ begin
   )
   on conflict (id) do update set
     nombre = excluded.nombre,
-    correo = excluded.correo,
+    email = excluded.email,
     telefono = excluded.telefono,
     cargo = excluded.cargo,
     role = excluded.role,
@@ -46,7 +46,7 @@ for each row execute procedure public.handle_new_user();
 insert into public.profiles (
   id,
   nombre,
-  correo,
+  email,
   telefono,
   cargo,
   role,

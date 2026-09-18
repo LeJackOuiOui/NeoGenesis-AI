@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 Deno.serve(async (request) => {
@@ -37,10 +38,13 @@ Deno.serve(async (request) => {
       return json({ error: 'No tienes permisos para crear usuarios' }, 403);
     }
 
-    const { name, email, position, role, password } = await request.json();
+    const { name, email, phone, position, role, password, status } = await request.json();
     if (!name || !email || !position || !role || !password || password.length < 6) {
       return json({ error: 'Datos de registro incompletos' }, 400);
     }
+
+    const allowedStatuses = ['Activo', 'En Vacaciones', 'Inactivo'];
+    const normalizedStatus = allowedStatuses.includes(status) ? status : 'Activo';
 
     const normalizedEmail = email.toLowerCase().trim();
     if (!normalizedEmail.includes('@') || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
@@ -63,30 +67,47 @@ Deno.serve(async (request) => {
       return json({ error: authError?.message ?? 'No se pudo crear la cuenta' }, 400);
     }
 
-    const profile = {
-      id: authData.user.id,
-      nombre: name.trim(),
-      correo: normalizedEmail,
-      telefono: '',
-      cargo: position.trim(),
-      role,
-      estado: 'Activo',
-    };
+    const { error: rpcError } = await adminClient.rpc('create_hr_person', {
+      p_user_id: authData.user.id,
+      p_full_name: name.trim(),
+      p_phone: phone?.trim() ?? '',
+      p_position: position.trim(),
+      p_role: role,
+      p_status: normalizedStatus,
+      p_avatar_url: null,
+    });
 
-    const { data: savedProfile, error: profileError } = await adminClient
+    if (rpcError) {
+      await adminClient.auth.admin.deleteUser(authData.user.id);
+      return json({ error: rpcError.message }, 400);
+    }
+
+    const { error: emailError } = await adminClient
       .from('profiles')
-      .upsert(profile)
-      .select('id, nombre, correo, cargo, role, estado, created_at')
+      .update({ email: normalizedEmail })
+      .eq('id', authData.user.id);
+
+    if (emailError) {
+      await adminClient.auth.admin.deleteUser(authData.user.id);
+      return json({ error: emailError.message }, 400);
+    }
+
+    const { data: savedProfile } = await adminClient
+      .from('profiles')
+      .select('id, nombre, email, cargo, role, estado, created_at')
+      .eq('id', authData.user.id)
       .single();
 
-    if (profileError) {
+    if (!savedProfile) {
       await adminClient.auth.admin.deleteUser(authData.user.id);
-      return json({ error: profileError.message }, 400);
+      return json({ error: 'La RPC no devolvió el perfil creado' }, 400);
     }
+
+    const profile = savedProfile;
 
     await adminClient.from('system_logs').insert({
       event: 'user_created',
-      description: `Usuario ${profile.correo} creado con rol ${profile.role}`,
+      description: `Usuario ${profile.email} creado con rol ${profile.role}`,
       metadata: { user_id: profile.id, role: profile.role },
     });
 

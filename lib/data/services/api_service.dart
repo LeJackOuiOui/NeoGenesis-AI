@@ -23,7 +23,7 @@ class ApiService {
 	Future<List<UserModel>> fetchUsers() async {
 		final rows = await client
 				.from('profiles')
-				.select('id, nombre, correo, cargo, role, estado, created_at')
+				.select('id, nombre, email, cargo, role, estado, created_at')
 				.order('created_at', ascending: false);
 		return (rows as List)
 				.map((row) => UserModel.fromMap(Map<String, dynamic>.from(row)))
@@ -33,6 +33,7 @@ class ApiService {
 	Future<UserRegistrationResult> registerHrUser({
 		required String nombre,
 		required String correo,
+		required String telefono,
 		required String cargo,
 		required String rol,
 		required String password,
@@ -42,7 +43,7 @@ class ApiService {
 		final existing = await client
 				.from('profiles')
 				.select('id')
-				.eq('correo', normalizedEmail)
+				.eq('email', normalizedEmail)
 				.maybeSingle();
 
 		if (existing != null) throw const DuplicateUserException();
@@ -52,6 +53,7 @@ class ApiService {
 			body: {
 				'name': nombre.trim(),
 				'email': normalizedEmail,
+				'phone': telefono.trim(),
 				'position': cargo.trim(),
 				'role': rol,
 				'password': password,
@@ -59,7 +61,11 @@ class ApiService {
 			},
 		);
 
-		final data = Map<String, dynamic>.from(response.data as Map);
+		final rawData = response.data;
+		if (rawData is! Map || rawData['profile'] is! Map) {
+			throw Exception('Supabase no devolvió el perfil creado. Despliega la función create-hr-user.');
+		}
+		final data = Map<String, dynamic>.from(rawData);
 		final user = UserModel.fromMap(
 			Map<String, dynamic>.from(data['profile'] as Map),
 		);

@@ -81,7 +81,7 @@ class _RegisterModalState extends State<RegisterModal> {
         await supabase.from('profiles').upsert({
           'id': user.id,
           'nombre': _nameController.text.trim(),
-          'correo': email,
+          'email': email,
           'telefono': _phoneController.text.trim(),
           'cargo': _selectedCargo,
           'role': _selectedRole,

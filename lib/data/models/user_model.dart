@@ -21,7 +21,7 @@ class UserModel {
 		return UserModel(
 			id: map['id']?.toString(),
 			nombre: map['nombre'] as String? ?? '',
-			correo: map['correo'] as String? ?? '',
+			correo: (map['email'] ?? map['correo']) as String? ?? '',
 			cargo: map['cargo'] as String? ?? '',
 			rol: (map['role'] ?? map['rol']) as String? ?? 'Empleado',
 			estado: map['estado'] as String? ?? 'Activo',
