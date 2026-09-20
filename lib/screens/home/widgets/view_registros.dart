@@ -73,6 +73,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
           ..addAll(
             users.map(
               (user) => {
+                'id': user.id ?? '',
                 'nombre': user.nombre,
                 'correo': user.correo,
                 'cargo': user.cargo,
@@ -87,7 +88,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo cargar el listado de usuarios.')),
+          const SnackBar(
+            content: Text('No se pudo cargar el listado de usuarios.'),
+          ),
         );
       }
     } finally {
@@ -204,19 +207,20 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                           children: [
                             _buildKpiCard(
                               title: 'Total Colaboradores',
-                              value: '124',
+                              value: '${_empleados.length}',
                               icon: Icons.people_alt_outlined,
                               width: cardWidth,
                             ),
                             _buildKpiCard(
                               title: 'Personal Activo',
-                              value: '118',
+                              value: '${_countByStatus('Activo')}',
                               icon: Icons.check_circle_outline,
                               width: cardWidth,
                             ),
                             _buildKpiCard(
                               title: 'Departamentos',
-                              value: '6',
+                              value:
+                                  '${_empleados.map((employee) => employee['departamento']).toSet().length}',
                               icon: Icons.business_outlined,
                               width: cardWidth,
                             ),
@@ -363,7 +367,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                 ),
                                 DataColumn(
                                   label: Text(
-                                    'Acciones',
+                                    'Perfil',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -382,12 +386,12 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                             decoration: BoxDecoration(
                                               shape: BoxShape.circle,
                                               gradient: _avatarGradient(
-                                                item['nombre']!,
+                                                item['nombre'] ?? '',
                                               ),
                                             ),
                                             alignment: Alignment.center,
                                             child: Text(
-                                              item['nombre']![0].toUpperCase(),
+                                              _avatarInitial(item['nombre']),
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 color: Colors.white,
@@ -428,30 +432,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                       ),
                                     ),
                                     DataCell(Text(item['departamento']!)),
-                                    DataCell(_buildStatusSelector(item)),
+                                    DataCell(_buildStatusChip(item['estado']!)),
                                     DataCell(Text(item['fecha']!)),
                                     DataCell(
-                                      Row(
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.edit_outlined,
-                                              size: 18,
-                                              color: Colors.blue,
-                                            ),
-                                            onPressed: () =>
-                                                _abrirModalEditar(item),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 18,
-                                              color: Colors.red,
-                                            ),
-                                            onPressed: () =>
-                                                _confirmarEliminar(item),
-                                          ),
-                                        ],
+                                      const Icon(
+                                        Icons.lock_outline,
+                                        size: 18,
+                                        color: Colors.grey,
                                       ),
                                     ),
                                   ],
@@ -479,8 +466,14 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       [const Color(0xFF1976D2), const Color(0xFF64B5F6)],
       [const Color(0xFF7B1FA2), const Color(0xFFBA68C8)],
     ];
-    final selected = colors[name.codeUnitAt(0) % colors.length];
+    final selected =
+        colors[(name.isEmpty ? 0 : name.codeUnitAt(0)) % colors.length];
     return LinearGradient(colors: selected);
+  }
+
+  String _avatarInitial(String? name) {
+    final trimmedName = name?.trim() ?? '';
+    return trimmedName.isEmpty ? '?' : trimmedName[0].toUpperCase();
   }
 
   Widget _buildStatusFilter(String status) {
@@ -499,165 +492,6 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       side: BorderSide(color: Colors.grey[300]!),
       backgroundColor: Colors.white,
     );
-  }
-
-  Widget _buildStatusSelector(Map<String, String> employee) {
-    return PopupMenuButton<String>(
-      tooltip: 'Cambiar estado',
-      initialValue: employee['estado'],
-      onSelected: (status) {
-        setState(() {
-          employee['estado'] = status;
-        });
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'Activo', child: Text('Activo')),
-        PopupMenuItem(value: 'En Vacaciones', child: Text('En Vacaciones')),
-        PopupMenuItem(value: 'Inactivo', child: Text('Inactivo')),
-      ],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildStatusChip(employee['estado']!),
-          const SizedBox(width: 4),
-          const Icon(Icons.arrow_drop_down, size: 18),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _confirmarEliminar(Map<String, String> employee) async {
-    final nombre = employee['nombre']!;
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Confirmar eliminación'),
-        content: Text(
-          '¿Estás seguro de que deseas eliminar a $nombre? Esta acción no se puede deshacer.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldDelete != true || !mounted) return;
-    setState(() => _empleados.remove(employee));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Empleado $nombre eliminado'),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  Future<void> _abrirModalEditar(Map<String, String> employee) async {
-    final nameController = TextEditingController(text: employee['nombre']);
-    final positionController = TextEditingController(text: employee['cargo']);
-    var selectedDepartment = employee['departamento']!;
-    const departments = ['Tecnología', 'Recursos Humanos', 'Finanzas'];
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text('Editar: ${employee['nombre']}'),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre completo',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: positionController,
-                  decoration: const InputDecoration(labelText: 'Cargo'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: departments.contains(selectedDepartment)
-                      ? selectedDepartment
-                      : null,
-                  decoration: const InputDecoration(labelText: 'Departamento'),
-                  items: departments
-                      .map(
-                        (department) => DropdownMenuItem(
-                          value: department,
-                          child: Text(department),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => selectedDepartment = value);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (nameController.text.trim().isEmpty ||
-                    positionController.text.trim().isEmpty) {
-                  return;
-                }
-                setState(() {
-                  employee['nombre'] = nameController.text.trim();
-                  employee['cargo'] = positionController.text.trim();
-                  employee['departamento'] = selectedDepartment;
-                });
-                Navigator.pop(dialogContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Información actualizada correctamente'),
-                    backgroundColor: AppTheme.primaryGreen,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text('Guardar cambios'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    nameController.dispose();
-    positionController.dispose();
   }
 
   Future<void> _showNewEmployeeDialog() async {
@@ -700,10 +534,16 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                           RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]'),
                         ),
                       ],
-                      decoration: const InputDecoration(labelText: 'Nombre completo *'),
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre completo *',
+                      ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Ingresa el nombre';
-                        if (RegExp(r'\d').hasMatch(value)) return 'El nombre no puede contener números';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Ingresa el nombre';
+                        }
+                        if (RegExp(r'\d').hasMatch(value)) {
+                          return 'El nombre no puede contener números';
+                        }
                         return null;
                       },
                     ),
@@ -720,7 +560,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         if (value == null || value.trim().isEmpty) {
                           return 'Ingresa tu correo';
                         }
-                        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
+                        if (!RegExp(
+                          r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                        ).hasMatch(value.trim())) {
                           return 'Ingresa un correo válido';
                         }
                         return null;
@@ -730,11 +572,17 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[0-9+\-\s()]'),
+                        ),
                       ],
-                      decoration: const InputDecoration(labelText: 'Teléfono *'),
+                      decoration: const InputDecoration(
+                        labelText: 'Teléfono *',
+                      ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Ingresa el teléfono';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Ingresa el teléfono';
+                        }
                         if (value.replaceAll(RegExp(r'\D'), '').length < 7) {
                           return 'Ingresa un teléfono válido';
                         }
@@ -763,7 +611,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) return 'Ingresa la contraseña';
+                        if (value == null || value.isEmpty) {
+                          return 'Ingresa la contraseña';
+                        }
                         if (value.length < 6) return 'Usa mínimo 6 caracteres';
                         return null;
                       },
@@ -784,7 +634,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                 : Icons.visibility_outlined,
                           ),
                           onPressed: () => setDialogState(
-                            () => obscureConfirmPassword = !obscureConfirmPassword,
+                            () => obscureConfirmPassword =
+                                !obscureConfirmPassword,
                           ),
                         ),
                       ),
@@ -799,7 +650,12 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         prefixIcon: Icon(Icons.work_outline),
                       ),
                       items: cargos
-                          .map((cargo) => DropdownMenuItem(value: cargo, child: Text(cargo)))
+                          .map(
+                            (cargo) => DropdownMenuItem(
+                              value: cargo,
+                              child: Text(cargo),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         if (value != null) {
@@ -837,6 +693,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         if (!context.mounted) return;
                         setState(() {
                           _empleados.insert(0, {
+                            'id': result.user.id ?? '',
                             'nombre': result.user.nombre,
                             'correo': result.user.correo,
                             'cargo': result.user.cargo,
@@ -849,7 +706,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         Navigator.pop(dialogContext);
                         messenger.showSnackBar(
                           const SnackBar(
-                            content: Text('Usuario creado. Sus credenciales fueron enviadas por correo.'),
+                            content: Text(
+                              'Usuario creado. Sus credenciales fueron enviadas por correo.',
+                            ),
                             backgroundColor: AppTheme.primaryGreen,
                           ),
                         );
@@ -857,7 +716,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         setDialogState(() => isSaving = false);
                         messenger.showSnackBar(
                           const SnackBar(
-                            content: Text('El correo institucional ya está registrado.'),
+                            content: Text(
+                              'El correo institucional ya está registrado.',
+                            ),
                             backgroundColor: Colors.redAccent,
                           ),
                         );
@@ -865,7 +726,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         setDialogState(() => isSaving = false);
                         messenger.showSnackBar(
                           SnackBar(
-                            content: Text('No se pudo crear el usuario: $error'),
+                            content: Text(
+                              'No se pudo crear el usuario: $error',
+                            ),
                             backgroundColor: Colors.redAccent,
                           ),
                         );

@@ -39,6 +39,11 @@ class ApiService {
 		required String password,
 		required String estado,
 	}) async {
+		if (client.auth.currentSession == null) {
+			throw Exception(
+				'Debes iniciar sesión como Administrador o Responsable RRHH para crear empleados.',
+			);
+		}
 		final normalizedEmail = correo.trim().toLowerCase();
 		final existing = await client
 				.from('profiles')
@@ -55,7 +60,7 @@ class ApiService {
 				'email': normalizedEmail,
 				'phone': telefono.trim(),
 				'position': cargo.trim(),
-				'role': rol,
+				'role': 'Empleado',
 				'password': password,
 				'status': estado,
 			},

@@ -1,6 +1,46 @@
 -- Ejecutar en Supabase SQL Editor.
 -- Crea el perfil aunque el proyecto exija confirmar el correo electrónico.
 
+-- La aplicación usa estos nombres de forma consistente en profiles.
+-- IF NOT EXISTS permite ejecutar este bloque aunque algunas columnas ya existan.
+alter table public.profiles
+  add column if not exists nombre text,
+  add column if not exists email text,
+  add column if not exists telefono text,
+  add column if not exists cargo text,
+  add column if not exists role text,
+  add column if not exists estado text,
+  add column if not exists avatar_url text,
+  add column if not exists created_at timestamptz default now();
+
+-- Migra los datos del esquema anterior y elimina columnas duplicadas.
+do $migration$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'full_name') then
+    execute $sql$update public.profiles set nombre = coalesce(nullif(nombre, ''), full_name) where full_name is not null$sql$;
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'phone') then
+    execute $sql$update public.profiles set telefono = coalesce(nullif(telefono, ''), phone) where phone is not null$sql$;
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'position') then
+    execute $sql$update public.profiles set cargo = coalesce(nullif(cargo, ''), position) where position is not null$sql$;
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'status') then
+    execute $sql$update public.profiles set estado = coalesce(nullif(estado, ''), status) where status is not null$sql$;
+  end if;
+end;
+$migration$;
+
+alter table public.profiles
+  drop column if exists full_name,
+  drop column if exists phone,
+  drop column if exists position,
+  drop column if exists status;
+
+update public.profiles
+set role = 'Empleado'
+where role is null or trim(role) = '';
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -68,11 +108,30 @@ where not exists (
 -- Permite al usuario autenticado consultar y actualizar únicamente su perfil.
 alter table public.profiles enable row level security;
 
+create or replace function public.is_user_manager()
+returns boolean
+language sql
+stable
+security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and role in ('Administrador', 'Responsable RRHH')
+  );
+$$;
+
 drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile"
 on public.profiles for select
 to authenticated
 using (auth.uid() = id);
+
+drop policy if exists "Managers can view employee profiles" on public.profiles;
+create policy "Managers can view employee profiles"
+on public.profiles for select
+to authenticated
+using (public.is_user_manager());
 
 drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"

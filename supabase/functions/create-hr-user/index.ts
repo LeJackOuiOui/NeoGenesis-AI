@@ -38,13 +38,14 @@ Deno.serve(async (request) => {
       return json({ error: 'No tienes permisos para crear usuarios' }, 403);
     }
 
-    const { name, email, phone, position, role, password, status } = await request.json();
-    if (!name || !email || !position || !role || !password || password.length < 6) {
+    const { name, email, phone, position, password } = await request.json();
+    if (!name || !email || !position || !password || password.length < 6) {
       return json({ error: 'Datos de registro incompletos' }, 400);
     }
+    const role = 'Empleado';
 
     const allowedStatuses = ['Activo', 'En Vacaciones', 'Inactivo'];
-    const normalizedStatus = allowedStatuses.includes(status) ? status : 'Activo';
+    const normalizedStatus = 'Activo';
 
     const normalizedEmail = email.toLowerCase().trim();
     if (!normalizedEmail.includes('@') || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
@@ -59,7 +60,7 @@ Deno.serve(async (request) => {
         full_name: name.trim(),
         position: position.trim(),
         role,
-        phone: '',
+        phone: phone?.trim() ?? '',
       },
     });
 
@@ -67,29 +68,19 @@ Deno.serve(async (request) => {
       return json({ error: authError?.message ?? 'No se pudo crear la cuenta' }, 400);
     }
 
-    const { error: rpcError } = await adminClient.rpc('create_hr_person', {
-      p_user_id: authData.user.id,
-      p_full_name: name.trim(),
-      p_phone: phone?.trim() ?? '',
-      p_position: position.trim(),
-      p_role: role,
-      p_status: normalizedStatus,
-      p_avatar_url: null,
-    });
+    const { error: profileError } = await adminClient.from('profiles').upsert({
+      id: authData.user.id,
+      nombre: name.trim(),
+      email: normalizedEmail,
+      telefono: phone?.trim() ?? '',
+      cargo: position.trim(),
+      role,
+      estado: normalizedStatus,
+    }, { onConflict: 'id' });
 
-    if (rpcError) {
+    if (profileError) {
       await adminClient.auth.admin.deleteUser(authData.user.id);
-      return json({ error: rpcError.message }, 400);
-    }
-
-    const { error: emailError } = await adminClient
-      .from('profiles')
-      .update({ email: normalizedEmail })
-      .eq('id', authData.user.id);
-
-    if (emailError) {
-      await adminClient.auth.admin.deleteUser(authData.user.id);
-      return json({ error: emailError.message }, 400);
+      return json({ error: profileError.message }, 400);
     }
 
     const { data: savedProfile } = await adminClient
