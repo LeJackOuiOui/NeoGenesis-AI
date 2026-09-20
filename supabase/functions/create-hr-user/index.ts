@@ -48,8 +48,8 @@ Deno.serve(async (request) => {
     const normalizedStatus = 'Activo';
 
     const normalizedEmail = email.toLowerCase().trim();
-    if (!normalizedEmail.includes('@') || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
-      return json({ error: 'El correo institucional no es válido' }, 400);
+    if (!/^[a-z0-9._%+\-]+@(gmail|googlemail)\.com$/.test(normalizedEmail)) {
+      return json({ error: 'El correo debe ser de Gmail o Google Mail' }, 400);
     }
 
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({

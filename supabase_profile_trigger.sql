@@ -10,6 +10,10 @@ alter table public.profiles
   add column if not exists cargo text,
   add column if not exists role text,
   add column if not exists estado text,
+  add column if not exists salario_base numeric default 0,
+  add column if not exists tipo_contrato text default 'Tiempo Completo',
+  add column if not exists fecha_ingreso date,
+  add column if not exists baja_logica boolean default false,
   add column if not exists avatar_url text,
   add column if not exists created_at timestamptz default now();
 
@@ -54,7 +58,11 @@ begin
     telefono,
     cargo,
     role,
-    estado
+    estado,
+    salario_base,
+    tipo_contrato,
+    fecha_ingreso,
+    baja_logica
   )
   values (
     new.id,
@@ -63,7 +71,11 @@ begin
     coalesce(new.raw_user_meta_data ->> 'phone', ''),
     coalesce(new.raw_user_meta_data ->> 'position', 'Empleado'),
     coalesce(new.raw_user_meta_data ->> 'role', 'Empleado'),
-    'Activo'
+    'Activo',
+    0,
+    'Tiempo Completo',
+    current_date,
+    false
   )
   on conflict (id) do update set
     nombre = excluded.nombre,
@@ -71,7 +83,11 @@ begin
     telefono = excluded.telefono,
     cargo = excluded.cargo,
     role = excluded.role,
-    estado = excluded.estado;
+    estado = excluded.estado,
+    salario_base = excluded.salario_base,
+    tipo_contrato = excluded.tipo_contrato,
+    fecha_ingreso = excluded.fecha_ingreso,
+    baja_logica = excluded.baja_logica;
 
   return new;
 end;
@@ -90,7 +106,11 @@ insert into public.profiles (
   telefono,
   cargo,
   role,
-  estado
+  estado,
+  salario_base,
+  tipo_contrato,
+  fecha_ingreso,
+  baja_logica
 )
 select
   u.id,
@@ -99,7 +119,11 @@ select
   coalesce(u.raw_user_meta_data ->> 'phone', ''),
   coalesce(u.raw_user_meta_data ->> 'position', 'Empleado'),
   coalesce(u.raw_user_meta_data ->> 'role', 'Empleado'),
-  'Activo'
+  'Activo',
+  0,
+  'Tiempo Completo',
+  current_date,
+  false
 from auth.users u
 where not exists (
   select 1 from public.profiles p where p.id = u.id
@@ -139,3 +163,16 @@ on public.profiles for update
 to authenticated
 using (auth.uid() = id)
 with check (auth.uid() = id);
+
+drop policy if exists "Managers can update employee profiles" on public.profiles;
+create policy "Managers can update employee profiles"
+on public.profiles for update
+to authenticated
+using (public.is_user_manager())
+with check (public.is_user_manager());
+
+drop policy if exists "Managers can insert employee profiles" on public.profiles;
+create policy "Managers can insert employee profiles"
+on public.profiles for insert
+to authenticated
+with check (public.is_user_manager());

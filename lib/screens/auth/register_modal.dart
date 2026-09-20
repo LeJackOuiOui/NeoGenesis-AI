@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../data/services/api_service.dart';
 import '../../../main.dart';
 
 class RegisterModal extends StatefulWidget {
@@ -268,8 +269,9 @@ class _RegisterModalState extends State<RegisterModal> {
                     if (value == null || value.trim().isEmpty) {
                       return 'Ingresa tu correo';
                     }
-                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
-                      return 'Ingresa un correo válido';
+                    final email = value.trim().toLowerCase();
+                    if (!ApiService.isValidGmailEmail(email)) {
+                      return 'Usa un correo Gmail válido';
                     }
                     return null;
                   },
