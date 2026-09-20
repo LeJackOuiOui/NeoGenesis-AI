@@ -40,6 +40,19 @@ class _LoginModalState extends State<LoginModal> {
     setState(() => _isLoading = true);
     try {
       await supabase.auth.signInWithPassword(email: email, password: password);
+      final currentUser = supabase.auth.currentUser;
+      final profile = currentUser == null
+          ? null
+          : await supabase
+              .from('profiles')
+              .select('estado')
+              .eq('id', currentUser.id)
+              .maybeSingle();
+      if (profile?['estado'] == 'Inactivo') {
+        await supabase.auth.signOut();
+        _showMessage('Tu usuario está inactivo. Contacta al administrador.', isError: true);
+        return;
+      }
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(

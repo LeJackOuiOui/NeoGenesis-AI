@@ -12,23 +12,13 @@ class ViewPerfil extends StatefulWidget {
 class _ViewPerfilState extends State<ViewPerfil> {
   final supabase = Supabase.instance.client;
 
-  final TextEditingController _nombreController = TextEditingController();
-  final TextEditingController _correoController = TextEditingController();
-  final TextEditingController _telefonoController = TextEditingController();
-
-  String? _cargoSeleccionado;
+  String _nombre = '';
+  String _correo = '';
+  String _telefono = '';
+  String _cargo = '';
+  String _rol = '';
   String? _avatarUrl;
   bool _isLoading = false;
-
-  // Opciones para el cargo seleccionable
-  final List<String> _listaCargos = [
-    'Analista de Recursos Humanos',
-    'Reclutador',
-    'Responsable de Nómina',
-    'Coordinador de Recursos Humanos',
-    'Asistente de Recursos Humanos',
-    'Empleado',
-  ];
 
   @override
   void initState() {
@@ -43,30 +33,56 @@ class _ViewPerfilState extends State<ViewPerfil> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-        final data = await supabase
+      final data = await supabase
           .from('profiles')
           .select()
           .eq('id', userId)
           .maybeSingle();
+      final metadata = supabase.auth.currentUser?.userMetadata ?? {};
 
-        if (data == null) {
-        final metadata = supabase.auth.currentUser?.userMetadata ?? {};
-        _nombreController.text = metadata['full_name']?.toString() ?? '';
-        _correoController.text = supabase.auth.currentUser?.email ?? '';
-        _telefonoController.text = metadata['phone']?.toString() ?? '';
-        _cargoSeleccionado = _listaCargos.contains(metadata['position'])
-          ? metadata['position'] as String
-          : null;
+      if (data == null) {
+        _nombre = metadata['full_name']?.toString() ?? '';
+        _correo = supabase.auth.currentUser?.email ?? '';
+        _telefono = metadata['phone']?.toString() ?? '';
+        _cargo = metadata['position']?.toString() ?? '';
+        _rol = metadata['role']?.toString() ?? '';
         return;
-        }
+      }
 
-      _nombreController.text = data['nombre'] ?? '';
-      _correoController.text = data['email'] ?? data['correo'] ?? '';
-      _telefonoController.text = data['telefono'] ?? '';
+      final nombre = _profileValue(data['nombre'], metadata['full_name']);
+      final correo = _profileValue(
+        data['email'] ?? data['correo'],
+        supabase.auth.currentUser?.email,
+      );
+      final telefono = _profileValue(data['telefono'], metadata['phone']);
+      final cargo = _profileValue(data['cargo'], metadata['position']);
+      final rol = _profileValue(data['role'] ?? data['rol'], metadata['role']);
+
+      _nombre = nombre;
+      _correo = correo;
+      _telefono = telefono;
       _avatarUrl = data['avatar_url'];
+      _cargo = cargo;
+      _rol = rol;
 
-      if (_listaCargos.contains(data['cargo'])) {
-        _cargoSeleccionado = data['cargo'];
+      final missingProfileData = <String, dynamic>{};
+      if (_isEmpty(data['nombre']) && nombre.isNotEmpty) {
+        missingProfileData['nombre'] = nombre;
+      }
+      if (_isEmpty(data['telefono']) && telefono.isNotEmpty) {
+        missingProfileData['telefono'] = telefono;
+      }
+      if (_isEmpty(data['cargo']) && cargo.isNotEmpty) {
+        missingProfileData['cargo'] = cargo;
+      }
+      if (_isEmpty(data['role'] ?? data['rol']) && rol.isNotEmpty) {
+        missingProfileData['role'] = rol;
+      }
+      if (missingProfileData.isNotEmpty) {
+        await supabase
+            .from('profiles')
+            .update(missingProfileData)
+            .eq('id', userId);
       }
     } catch (e) {
       if (mounted) {
@@ -79,49 +95,13 @@ class _ViewPerfilState extends State<ViewPerfil> {
     }
   }
 
-  // Guardar o actualizar datos en Supabase
-  Future<void> _guardarPerfil() async {
-    setState(() => _isLoading = true);
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      await supabase.from('profiles').upsert({
-        'id': userId,
-        'nombre': _nombreController.text,
-        'email': _correoController.text,
-        'cargo': _cargoSeleccionado,
-        'telefono': _telefonoController.text,
-        'avatar_url': _avatarUrl,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Perfil actualizado correctamente en Supabase.'),
-            backgroundColor: AppTheme.primaryGreen,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al guardar datos: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  String _profileValue(dynamic profileValue, dynamic metadataValue) {
+    final value = profileValue?.toString().trim() ?? '';
+    return value.isNotEmpty ? value : metadataValue?.toString().trim() ?? '';
   }
 
-  @override
-  void dispose() {
-    _nombreController.dispose();
-    _correoController.dispose();
-    _telefonoController.dispose();
-    super.dispose();
-  }
+  bool _isEmpty(dynamic value) =>
+      value == null || value.toString().trim().isEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -170,8 +150,8 @@ class _ViewPerfilState extends State<ViewPerfil> {
                             : null,
                         child: _avatarUrl == null || _avatarUrl!.isEmpty
                             ? Text(
-                                _nombreController.text.isNotEmpty
-                                    ? _nombreController.text[0].toUpperCase()
+                                _nombre.isNotEmpty
+                                    ? _nombre[0].toUpperCase()
                                     : 'U',
                                 style: const TextStyle(
                                   fontSize: 26,
@@ -187,9 +167,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _nombreController.text.isEmpty
-                                  ? 'Sin Nombre'
-                                  : _nombreController.text,
+                              _nombre.isEmpty ? 'Sin Nombre' : _nombre,
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -198,7 +176,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _cargoSeleccionado ?? 'Sin Cargo asignado',
+                              _cargo.isEmpty ? 'Sin cargo asignado' : _cargo,
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 14,
@@ -213,7 +191,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
 
                 const SizedBox(height: 24),
 
-                // 2. Formulario de Datos Personales
+                // Los datos se diligencian al crear la cuenta. El administrador los edita desde el CRUD.
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -225,126 +203,60 @@ class _ViewPerfilState extends State<ViewPerfil> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       LayoutBuilder(
-                        builder: (context, constraints) {
-                          bool esAncho = constraints.maxWidth > 600;
-                          double widthFactor = esAncho
-                              ? (constraints.maxWidth - 20) / 2
-                              : constraints.maxWidth;
-
-                          return Wrap(
-                            spacing: 20,
-                            runSpacing: 16,
-                            children: [
-                              SizedBox(
-                                width: widthFactor,
-                                child: _buildTextField(
-                                  label: 'Nombre Completo',
-                                  controller: _nombreController,
-                                  icon: Icons.person_outline,
-                                ),
-                              ),
-                              SizedBox(
-                                width: widthFactor,
-                                child: _buildTextField(
-                                  label: 'Correo Electrónico',
-                                  controller: _correoController,
-                                  icon: Icons.email_outlined,
-                                ),
-                              ),
-                              // Desplegable de Cargo Seleccionable
-                              SizedBox(
-                                width: widthFactor,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Cargo / Rol',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                        color: AppTheme.textDark,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    DropdownButtonFormField<String>(
-                                      initialValue: _cargoSeleccionado,
-                                      decoration: InputDecoration(
-                                        prefixIcon: const Icon(
-                                          Icons.work_outline,
-                                          color: AppTheme.primaryGreen,
-                                          size: 20,
-                                        ),
-                                        filled: true,
-                                        fillColor: Colors.grey[50],
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey[200]!,
-                                          ),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          borderSide: const BorderSide(
-                                            color: AppTheme.primaryGreen,
-                                            width: 1.5,
-                                          ),
-                                        ),
-                                      ),
-                                      hint: const Text('Selecciona un cargo'),
-                                      items: _listaCargos.map((cargo) {
-                                        return DropdownMenuItem(
-                                          value: cargo,
-                                          child: Text(cargo),
-                                        );
-                                      }).toList(),
-                                      onChanged: (val) {
-                                        setState(
-                                          () => _cargoSeleccionado = val,
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(
-                                width: widthFactor,
-                                child: _buildTextField(
-                                  label: 'Teléfono',
-                                  controller: _telefonoController,
-                                  icon: Icons.phone_outlined,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton.icon(
-                          onPressed: _guardarPerfil,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 14,
+                        builder: (context, constraints) => Column(
+                          children: [
+                            _buildProfileItem(
+                              'Nombre completo',
+                              _nombre,
+                              Icons.person_outline,
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                            _buildProfileItem(
+                              'Correo electrónico',
+                              _correo,
+                              Icons.email_outlined,
                             ),
-                          ),
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: const Text(
-                            'Guardar Cambios',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                            _buildProfileItem(
+                              'Cargo',
+                              _cargo,
+                              Icons.work_outline,
+                            ),
+                            _buildProfileItem(
+                              'Rol',
+                              _rol,
+                              Icons.badge_outlined,
+                            ),
+                            _buildProfileItem(
+                              'Teléfono',
+                              _telefono,
+                              Icons.phone_outlined,
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildOptionCard(
+                                    Icons.lock_outline,
+                                    'Seguridad',
+                                    'Cambiar contraseña',
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildOptionCard(
+                                    Icons.notifications_none,
+                                    'Notificaciones',
+                                    'Preferencias de avisos',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _buildOptionCard(
+                              Icons.help_outline,
+                              'Centro de ayuda',
+                              'Soporte de la plataforma',
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -358,11 +270,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required IconData icon,
-  }) {
+  Widget _buildProfileItem(String label, String value, IconData icon) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -375,30 +283,67 @@ class _ViewPerfilState extends State<ViewPerfil> {
           ),
         ),
         const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppTheme.primaryGreen, size: 20),
-            filled: true,
-            fillColor: Colors.grey[50],
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey[200]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(
-                color: AppTheme.primaryGreen,
-                width: 1.5,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppTheme.primaryGreen, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(color: AppTheme.textDark),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildOptionCard(IconData icon, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.lightGreenBg.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.primaryGreen.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.primaryGreen),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: AppTheme.primaryGreen),
+        ],
+      ),
     );
   }
 }

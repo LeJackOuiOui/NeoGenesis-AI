@@ -73,6 +73,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
           ..addAll(
             users.map(
               (user) => {
+                'id': user.id ?? '',
                 'nombre': user.nombre,
                 'correo': user.correo,
                 'cargo': user.cargo,
@@ -204,19 +205,19 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                           children: [
                             _buildKpiCard(
                               title: 'Total Colaboradores',
-                              value: '124',
+                              value: '${_empleados.length}',
                               icon: Icons.people_alt_outlined,
                               width: cardWidth,
                             ),
                             _buildKpiCard(
                               title: 'Personal Activo',
-                              value: '118',
+                              value: '${_countByStatus('Activo')}',
                               icon: Icons.check_circle_outline,
                               width: cardWidth,
                             ),
                             _buildKpiCard(
                               title: 'Departamentos',
-                              value: '6',
+                              value: '${_empleados.map((employee) => employee['departamento']).toSet().length}',
                               icon: Icons.business_outlined,
                               width: cardWidth,
                             ),
@@ -505,10 +506,21 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     return PopupMenuButton<String>(
       tooltip: 'Cambiar estado',
       initialValue: employee['estado'],
-      onSelected: (status) {
-        setState(() {
-          employee['estado'] = status;
-        });
+      onSelected: (status) async {
+        final previousStatus = employee['estado'];
+        setState(() => employee['estado'] = status);
+        try {
+          await _apiService.updateUserStatus(
+            userId: employee['id']!,
+            status: status,
+          );
+        } catch (_) {
+          if (!mounted) return;
+          setState(() => employee['estado'] = previousStatus!);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo actualizar el estado.')),
+          );
+        }
       },
       itemBuilder: (context) => const [
         PopupMenuItem(value: 'Activo', child: Text('Activo')),
@@ -532,9 +544,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Confirmar eliminación'),
+        title: const Text('Desactivar usuario'),
         content: Text(
-          '¿Estás seguro de que deseas eliminar a $nombre? Esta acción no se puede deshacer.',
+          '¿Estás seguro de que deseas desactivar a $nombre? No podrá iniciar sesión mientras esté inactivo.',
         ),
         actions: [
           TextButton(
@@ -550,28 +562,42 @@ class _ViewRegistrosState extends State<ViewRegistros> {
               ),
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Eliminar'),
+              child: const Text('Desactivar'),
           ),
         ],
       ),
     );
 
     if (shouldDelete != true || !mounted) return;
-    setState(() => _empleados.remove(employee));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Empleado $nombre eliminado'),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    try {
+      await _apiService.updateUserStatus(
+        userId: employee['id']!,
+        status: 'Inactivo',
+      );
+      if (!mounted) return;
+      setState(() => employee['estado'] = 'Inactivo');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Usuario $nombre desactivado'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo desactivar el usuario.')),
+      );
+    }
   }
 
   Future<void> _abrirModalEditar(Map<String, String> employee) async {
     final nameController = TextEditingController(text: employee['nombre']);
     final positionController = TextEditingController(text: employee['cargo']);
+    var selectedRole = employee['rol'] ?? 'Empleado';
     var selectedDepartment = employee['departamento']!;
     const departments = ['Tecnología', 'Recursos Humanos', 'Finanzas'];
+    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
 
     await showDialog<void>(
       context: context,
@@ -617,6 +643,17 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                     }
                   },
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: roles.contains(selectedRole) ? selectedRole : null,
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                  items: roles
+                      .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => selectedRole = value);
+                  },
+                ),
               ],
             ),
           ),
@@ -630,24 +667,41 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                 backgroundColor: AppTheme.primaryGreen,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.trim().isEmpty ||
                     positionController.text.trim().isEmpty) {
                   return;
                 }
-                setState(() {
-                  employee['nombre'] = nameController.text.trim();
-                  employee['cargo'] = positionController.text.trim();
-                  employee['departamento'] = selectedDepartment;
-                });
-                Navigator.pop(dialogContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Información actualizada correctamente'),
-                    backgroundColor: AppTheme.primaryGreen,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                try {
+                  final updated = await _apiService.updateUser(
+                    userId: employee['id']!,
+                    nombre: nameController.text,
+                    cargo: positionController.text,
+                    rol: selectedRole,
+                    estado: employee['estado']!,
+                  );
+                  if (!context.mounted) return;
+                  setState(() {
+                    employee['nombre'] = updated.nombre;
+                    employee['cargo'] = updated.cargo;
+                    employee['rol'] = updated.rol;
+                    employee['departamento'] = selectedDepartment;
+                  });
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Información actualizada correctamente'),
+                      backgroundColor: AppTheme.primaryGreen,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No se pudo actualizar el usuario.')),
+                    );
+                  }
+                }
               },
               child: const Text('Guardar cambios'),
             ),
@@ -668,6 +722,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     final confirmPasswordController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     var selectedCargo = 'Analista de Recursos Humanos';
+    var selectedRole = 'Empleado';
     const cargos = [
       'Analista de Recursos Humanos',
       'Reclutador',
@@ -676,6 +731,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       'Asistente de Recursos Humanos',
       'Empleado',
     ];
+    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
     var isSaving = false;
     var obscurePassword = true;
     var obscureConfirmPassword = true;
@@ -807,6 +863,16 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         }
                       },
                     ),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedRole,
+                      decoration: const InputDecoration(labelText: 'Rol *'),
+                      items: roles
+                          .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) setDialogState(() => selectedRole = value);
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -830,7 +896,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                           correo: emailController.text,
                           telefono: phoneController.text,
                           cargo: selectedCargo,
-                          rol: "Empleado",
+                          rol: selectedRole,
                           password: passwordController.text,
                           estado: 'Activo',
                         );

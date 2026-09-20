@@ -109,11 +109,11 @@ class _RegisterModalState extends State<RegisterModal> {
           backgroundColor: Colors.redAccent,
         ),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('La cuenta se creó, pero no se pudo guardar el perfil.'),
+        SnackBar(
+          content: Text('La cuenta se creó, pero no se pudo guardar el perfil: $error'),
           backgroundColor: Colors.redAccent,
         ),
       );
