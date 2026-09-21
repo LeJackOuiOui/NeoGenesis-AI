@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../data/services/api_service.dart';
+import '../../../main.dart';
 
 class ViewRegistros extends StatefulWidget {
   const ViewRegistros({super.key});
@@ -10,7 +13,9 @@ class ViewRegistros extends StatefulWidget {
 
 class _ViewRegistrosState extends State<ViewRegistros> {
   final TextEditingController _searchController = TextEditingController();
+  final ApiService _apiService = ApiService(supabase);
   String _selectedStatus = 'Todos';
+  bool _isLoadingUsers = false;
 
   // Lista simulada de empleados
   final List<Map<String, String>> _empleados = [
@@ -50,6 +55,51 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       'fecha': '01/08/2021',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() => _isLoadingUsers = true);
+    try {
+      final users = await _apiService.fetchUsers();
+      if (!mounted) return;
+      setState(() {
+        _empleados
+          ..clear()
+          ..addAll(
+            users.map(
+              (user) => {
+                'id': user.id ?? '',
+                'nombre': user.nombre,
+                'correo': user.correo,
+                'cargo': user.cargo,
+                'rol': user.rol,
+                'departamento': 'Recursos Humanos',
+                'estado': user.estado,
+                'fecha': _formatDate(user.creadoEn),
+              },
+            ),
+          );
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo cargar el listado de usuarios.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingUsers = false);
+    }
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Sin fecha';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
 
   @override
   void dispose() {
@@ -155,19 +205,19 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                           children: [
                             _buildKpiCard(
                               title: 'Total Colaboradores',
-                              value: '124',
+                              value: '${_empleados.length}',
                               icon: Icons.people_alt_outlined,
                               width: cardWidth,
                             ),
                             _buildKpiCard(
                               title: 'Personal Activo',
-                              value: '118',
+                              value: '${_countByStatus('Activo')}',
                               icon: Icons.check_circle_outline,
                               width: cardWidth,
                             ),
                             _buildKpiCard(
                               title: 'Departamentos',
-                              value: '6',
+                              value: '${_empleados.map((employee) => employee['departamento']).toSet().length}',
                               icon: Icons.business_outlined,
                               width: cardWidth,
                             ),
@@ -197,6 +247,11 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
+                          if (_isLoadingUsers)
+                            const LinearProgressIndicator(
+                              color: AppTheme.primaryGreen,
+                            ),
+                          const SizedBox(height: 12),
                           // Barra superior con campo de búsqueda
                           Row(
                             children: [
@@ -361,6 +416,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                                   color: Colors.grey[600],
                                                 ),
                                               ),
+                                              Text(
+                                                'Rol: ${item['rol'] ?? 'Empleado'}',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         ],
@@ -444,10 +506,21 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     return PopupMenuButton<String>(
       tooltip: 'Cambiar estado',
       initialValue: employee['estado'],
-      onSelected: (status) {
-        setState(() {
-          employee['estado'] = status;
-        });
+      onSelected: (status) async {
+        final previousStatus = employee['estado'];
+        setState(() => employee['estado'] = status);
+        try {
+          await _apiService.updateUserStatus(
+            userId: employee['id']!,
+            status: status,
+          );
+        } catch (_) {
+          if (!mounted) return;
+          setState(() => employee['estado'] = previousStatus!);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo actualizar el estado.')),
+          );
+        }
       },
       itemBuilder: (context) => const [
         PopupMenuItem(value: 'Activo', child: Text('Activo')),
@@ -471,9 +544,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Confirmar eliminación'),
+        title: const Text('Desactivar usuario'),
         content: Text(
-          '¿Estás seguro de que deseas eliminar a $nombre? Esta acción no se puede deshacer.',
+          '¿Estás seguro de que deseas desactivar a $nombre? No podrá iniciar sesión mientras esté inactivo.',
         ),
         actions: [
           TextButton(
@@ -489,28 +562,42 @@ class _ViewRegistrosState extends State<ViewRegistros> {
               ),
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Eliminar'),
+              child: const Text('Desactivar'),
           ),
         ],
       ),
     );
 
     if (shouldDelete != true || !mounted) return;
-    setState(() => _empleados.remove(employee));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Empleado $nombre eliminado'),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    try {
+      await _apiService.updateUserStatus(
+        userId: employee['id']!,
+        status: 'Inactivo',
+      );
+      if (!mounted) return;
+      setState(() => employee['estado'] = 'Inactivo');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Usuario $nombre desactivado'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo desactivar el usuario.')),
+      );
+    }
   }
 
   Future<void> _abrirModalEditar(Map<String, String> employee) async {
     final nameController = TextEditingController(text: employee['nombre']);
     final positionController = TextEditingController(text: employee['cargo']);
+    var selectedRole = employee['rol'] ?? 'Empleado';
     var selectedDepartment = employee['departamento']!;
     const departments = ['Tecnología', 'Recursos Humanos', 'Finanzas'];
+    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
 
     await showDialog<void>(
       context: context,
@@ -556,6 +643,17 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                     }
                   },
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: roles.contains(selectedRole) ? selectedRole : null,
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                  items: roles
+                      .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => selectedRole = value);
+                  },
+                ),
               ],
             ),
           ),
@@ -569,24 +667,41 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                 backgroundColor: AppTheme.primaryGreen,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.trim().isEmpty ||
                     positionController.text.trim().isEmpty) {
                   return;
                 }
-                setState(() {
-                  employee['nombre'] = nameController.text.trim();
-                  employee['cargo'] = positionController.text.trim();
-                  employee['departamento'] = selectedDepartment;
-                });
-                Navigator.pop(dialogContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Información actualizada correctamente'),
-                    backgroundColor: AppTheme.primaryGreen,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                try {
+                  final updated = await _apiService.updateUser(
+                    userId: employee['id']!,
+                    nombre: nameController.text,
+                    cargo: positionController.text,
+                    rol: selectedRole,
+                    estado: employee['estado']!,
+                  );
+                  if (!context.mounted) return;
+                  setState(() {
+                    employee['nombre'] = updated.nombre;
+                    employee['cargo'] = updated.cargo;
+                    employee['rol'] = updated.rol;
+                    employee['departamento'] = selectedDepartment;
+                  });
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Información actualizada correctamente'),
+                      backgroundColor: AppTheme.primaryGreen,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No se pudo actualizar el usuario.')),
+                    );
+                  }
+                }
               },
               child: const Text('Guardar cambios'),
             ),
@@ -601,74 +716,246 @@ class _ViewRegistrosState extends State<ViewRegistros> {
 
   Future<void> _showNewEmployeeDialog() async {
     final nameController = TextEditingController();
-    final positionController = TextEditingController();
-    final departmentController = TextEditingController();
     final emailController = TextEditingController();
+    final phoneController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var selectedCargo = 'Analista de Recursos Humanos';
+    var selectedRole = 'Empleado';
+    const cargos = [
+      'Analista de Recursos Humanos',
+      'Reclutador',
+      'Responsable de Nómina',
+      'Coordinador de Recursos Humanos',
+      'Asistente de Recursos Humanos',
+      'Empleado',
+    ];
+    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
+    var isSaving = false;
+    var obscurePassword = true;
+    var obscureConfirmPassword = true;
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Nuevo empleado'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nombre completo'),
-              ),
-              TextField(
-                controller: positionController,
-                decoration: const InputDecoration(labelText: 'Cargo'),
-              ),
-              TextField(
-                controller: departmentController,
-                decoration: const InputDecoration(labelText: 'Departamento'),
-              ),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Correo electrónico',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Registrar usuario de RRHH'),
+          content: SizedBox(
+            width: 420,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]'),
+                        ),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Nombre completo *'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return 'Ingresa el nombre';
+                        if (RegExp(r'\d').hasMatch(value)) return 'El nombre no puede contener números';
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Correo electrónico *',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Ingresa tu correo';
+                        }
+                        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
+                          return 'Ingresa un correo válido';
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Teléfono *'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return 'Ingresa el teléfono';
+                        if (value.replaceAll(RegExp(r'\D'), '').length < 7) {
+                          return 'Ingresa un teléfono válido';
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: passwordController,
+                      obscureText: obscurePassword,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña *',
+                        helperText: 'Mínimo 6 caracteres',
+                        suffixIcon: IconButton(
+                          tooltip: obscurePassword
+                              ? 'Mostrar contraseña'
+                              : 'Ocultar contraseña',
+                          icon: Icon(
+                            obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () => setDialogState(
+                            () => obscurePassword = !obscurePassword,
+                          ),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Ingresa la contraseña';
+                        if (value.length < 6) return 'Usa mínimo 6 caracteres';
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: confirmPasswordController,
+                      obscureText: obscureConfirmPassword,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Confirmar contraseña *',
+                        suffixIcon: IconButton(
+                          tooltip: obscureConfirmPassword
+                              ? 'Mostrar contraseña'
+                              : 'Ocultar contraseña',
+                          icon: Icon(
+                            obscureConfirmPassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () => setDialogState(
+                            () => obscureConfirmPassword = !obscureConfirmPassword,
+                          ),
+                        ),
+                      ),
+                      validator: (value) => value != passwordController.text
+                          ? 'Las contraseñas no coinciden'
+                          : null,
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedCargo,
+                      decoration: const InputDecoration(
+                        labelText: 'Cargo *',
+                        prefixIcon: Icon(Icons.work_outline),
+                      ),
+                      items: cargos
+                          .map((cargo) => DropdownMenuItem(value: cargo, child: Text(cargo)))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() => selectedCargo = value);
+                        }
+                      },
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedRole,
+                      decoration: const InputDecoration(labelText: 'Rol *'),
+                      items: roles
+                          .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) setDialogState(() => selectedRole = value);
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton.icon(
+              onPressed: isSaving || passwordController.text.length < 6
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => isSaving = true);
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        final result = await _apiService.registerHrUser(
+                          nombre: nameController.text,
+                          correo: emailController.text,
+                          telefono: phoneController.text,
+                          cargo: selectedCargo,
+                          rol: selectedRole,
+                          password: passwordController.text,
+                          estado: 'Activo',
+                        );
+                        if (!context.mounted) return;
+                        setState(() {
+                          _empleados.insert(0, {
+                            'nombre': result.user.nombre,
+                            'correo': result.user.correo,
+                            'cargo': result.user.cargo,
+                            'rol': result.user.rol,
+                            'departamento': 'Recursos Humanos',
+                            'estado': result.user.estado,
+                            'fecha': _formatDate(result.user.creadoEn),
+                          });
+                        });
+                        Navigator.pop(dialogContext);
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Usuario creado. Sus credenciales fueron enviadas por correo.'),
+                            backgroundColor: AppTheme.primaryGreen,
+                          ),
+                        );
+                      } on DuplicateUserException {
+                        setDialogState(() => isSaving = false);
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('El correo institucional ya está registrado.'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      } catch (error) {
+                        setDialogState(() => isSaving = false);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('No se pudo crear el usuario: $error'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.person_add_alt_1),
+              label: const Text('Crear usuario'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameController.text.trim().isEmpty ||
-                  positionController.text.trim().isEmpty) {
-                return;
-              }
-              setState(() {
-                _empleados.add({
-                  'nombre': nameController.text.trim(),
-                  'cargo': positionController.text.trim(),
-                  'departamento': departmentController.text.trim().isEmpty
-                      ? 'Sin asignar'
-                      : departmentController.text.trim(),
-                  'estado': 'Activo',
-                  'fecha': 'Hoy',
-                });
-              });
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Guardar empleado'),
-          ),
-        ],
       ),
     );
 
     nameController.dispose();
-    positionController.dispose();
-    departmentController.dispose();
     emailController.dispose();
+    phoneController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
   }
 
   // Tarjeta de KPI
