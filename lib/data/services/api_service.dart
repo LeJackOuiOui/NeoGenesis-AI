@@ -20,6 +20,70 @@ class ApiService {
 
   const ApiService(this.client);
 
+  // ==========================================
+  // MÉTODOS DE AUTENTICACIÓN (LOGIN & AUTH)
+  // ==========================================
+
+  /// Inicia sesión con correo y contraseña.
+  /// Retorna un objeto [AuthResponse] que contiene la sesión y el usuario autenticado.
+  Future<AuthResponse> login({
+    required String email,
+    required String password,
+  }) async {
+    final response = await client.auth.signInWithPassword(
+      email: email.trim(),
+      password: password.trim(),
+    );
+    return response;
+  }
+
+  /// Obtiene los datos del perfil ('profiles') del usuario autenticado actualmente.
+  Future<UserModel?> getCurrentUserProfile() async {
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) return null;
+
+    try {
+      final row = await client
+          .from('profiles')
+          .select(
+            'id, nombre, email, cargo, role, estado, created_at, salario_base, tipo_contrato, fecha_ingreso, baja_logica',
+          )
+          .eq('id', currentUser.id)
+          .maybeSingle();
+
+      if (row == null) return null;
+      return UserModel.fromMap(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error) {
+      if (!_isMissingColumnError(error)) rethrow;
+
+      final row = await client
+          .from('profiles')
+          .select('id, nombre, email, cargo, role, estado, created_at')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+
+      if (row == null) return null;
+      return UserModel.fromMap(Map<String, dynamic>.from(row));
+    }
+  }
+
+  /// Inicia sesión con el proveedor de OAuth de Google.
+  Future<bool> loginWithGoogle() async {
+    return await client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'io.supabase.flutter://login-callback',
+    );
+  }
+
+  /// Cierra la sesión activa en el dispositivo.
+  Future<void> signOut() async {
+    await client.auth.signOut();
+  }
+
+  // ==========================================
+  // UTILIDADES Y VALIDACIONES
+  // ==========================================
+
   static bool isValidGmailEmail(String? value) {
     final normalized = (value ?? '').trim().toLowerCase();
     if (normalized.isEmpty) return false;
@@ -53,13 +117,17 @@ class ApiService {
     return error.code == '42703' ||
         error.code == 'PGRST204' ||
         message.contains('does not exist') ||
-        message.contains('could not find the') && message.contains('column');
+        (message.contains('could not find the') && message.contains('column'));
   }
 
   static bool _isRlsError(PostgrestException error) {
     return error.code == '42501' ||
         error.message.toLowerCase().contains('row-level security policy');
   }
+
+  // ==========================================
+  // GESTIÓN DE EMPLEADOS / USUARIOS
+  // ==========================================
 
   Future<List<UserModel>> fetchEmployees() async {
     try {
@@ -385,7 +453,10 @@ class ApiService {
     return UserModel.fromMap(Map<String, dynamic>.from(response));
   }
 
-  /// 2. Verificar el código OTP ingresado por el usuario
+  // ==========================================
+  // OTP (ONE-TIME PASSWORD)
+  // ==========================================
+
   Future<AuthResponse> verifyOtp({
     required String email,
     required String token,
@@ -393,13 +464,11 @@ class ApiService {
     final response = await client.auth.verifyOTP(
       email: email.trim(),
       token: token.trim(),
-      type: OtpType
-          .signup, // Usa OtpType.magiclink, OtpType.recovery u OtpType.signup según tu flujo
+      type: OtpType.signup,
     );
     return response;
   }
 
-  /// 3. Reenviar OTP si expiró o no llegó
   Future<void> resendOtp(String email) async {
     await client.auth.resend(type: OtpType.signup, email: email.trim());
   }
