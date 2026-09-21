@@ -342,6 +342,40 @@ class ApiService {
 		required String userId,
 		required String status,
 	}) async {
-		await client.from('profiles').update({'estado': status}).eq('id', userId);
+		final profile = await client
+				.from('profiles')
+				.select('nombre, cargo, role')
+				.eq('id', userId)
+				.single();
+		await updateUser(
+			userId: userId,
+			nombre: profile['nombre'] as String? ?? '',
+			cargo: profile['cargo'] as String? ?? '',
+			rol: profile['role'] as String? ?? 'Empleado',
+			estado: status,
+		);
+	}
+
+	Future<UserModel> updateUser({
+		required String userId,
+		required String nombre,
+		required String cargo,
+		required String rol,
+		required String estado,
+	}) async {
+		final response = await client.rpc(
+			'admin_update_user',
+			params: {
+				'p_user_id': userId,
+				'p_nombre': nombre.trim(),
+				'p_cargo': cargo.trim(),
+				'p_role': rol,
+				'p_estado': estado,
+			},
+		);
+		if (response is! Map) {
+			throw Exception('Supabase no devolvió el usuario actualizado.');
+		}
+		return UserModel.fromMap(Map<String, dynamic>.from(response));
 	}
 }

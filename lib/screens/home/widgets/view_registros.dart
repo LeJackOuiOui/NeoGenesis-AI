@@ -368,6 +368,41 @@ class _ViewRegistrosState extends State<ViewRegistros> {
   Future<void> _deleteEmployee(Map<String, dynamic> employee) async {
     final id = employee['id']?.toString();
     if (id == null || id.isEmpty) return;
+  Widget _buildStatusSelector(Map<String, String> employee) {
+    return PopupMenuButton<String>(
+      tooltip: 'Cambiar estado',
+      initialValue: employee['estado'],
+      onSelected: (status) async {
+        final previousStatus = employee['estado'];
+        setState(() => employee['estado'] = status);
+        try {
+          await _apiService.updateUserStatus(
+            userId: employee['id']!,
+            status: status,
+          );
+        } catch (_) {
+          if (!mounted) return;
+          setState(() => employee['estado'] = previousStatus!);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo actualizar el estado.')),
+          );
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'Activo', child: Text('Activo')),
+        PopupMenuItem(value: 'En Vacaciones', child: Text('En Vacaciones')),
+        PopupMenuItem(value: 'Inactivo', child: Text('Inactivo')),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildStatusChip(employee['estado']!),
+          const SizedBox(width: 4),
+          const Icon(Icons.arrow_drop_down, size: 18),
+        ],
+      ),
+    );
+  }
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -410,6 +445,156 @@ class _ViewRegistrosState extends State<ViewRegistros> {
         const SnackBar(content: Text('No se pudo desactivar al empleado.')),
       );
     }
+              child: const Text('Desactivar'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) return;
+    try {
+      await _apiService.updateUserStatus(
+        userId: employee['id']!,
+        status: 'Inactivo',
+      );
+      if (!mounted) return;
+      setState(() => employee['estado'] = 'Inactivo');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Usuario $nombre desactivado'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo desactivar el usuario.')),
+      );
+    }
+  }
+
+  Future<void> _abrirModalEditar(Map<String, String> employee) async {
+    final nameController = TextEditingController(text: employee['nombre']);
+    final positionController = TextEditingController(text: employee['cargo']);
+    var selectedRole = employee['rol'] ?? 'Empleado';
+    var selectedDepartment = employee['departamento']!;
+    const departments = ['Tecnología', 'Recursos Humanos', 'Finanzas'];
+    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text('Editar: ${employee['nombre']}'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre completo',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: positionController,
+                  decoration: const InputDecoration(labelText: 'Cargo'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: departments.contains(selectedDepartment)
+                      ? selectedDepartment
+                      : null,
+                  decoration: const InputDecoration(labelText: 'Departamento'),
+                  items: departments
+                      .map(
+                        (department) => DropdownMenuItem(
+                          value: department,
+                          child: Text(department),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() => selectedDepartment = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: roles.contains(selectedRole) ? selectedRole : null,
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                  items: roles
+                      .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => selectedRole = value);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryGreen,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty ||
+                    positionController.text.trim().isEmpty) {
+                  return;
+                }
+                try {
+                  final updated = await _apiService.updateUser(
+                    userId: employee['id']!,
+                    nombre: nameController.text,
+                    cargo: positionController.text,
+                    rol: selectedRole,
+                    estado: employee['estado']!,
+                  );
+                  if (!context.mounted) return;
+                  setState(() {
+                    employee['nombre'] = updated.nombre;
+                    employee['cargo'] = updated.cargo;
+                    employee['rol'] = updated.rol;
+                    employee['departamento'] = selectedDepartment;
+                  });
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Información actualizada correctamente'),
+                      backgroundColor: AppTheme.primaryGreen,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No se pudo actualizar el usuario.')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Guardar cambios'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    positionController.dispose();
   }
 
   Future<void> _showEmployeeDialog({Map<String, dynamic>? employee}) async {
@@ -587,6 +772,16 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         if (picked != null) {
                           setDialogState(() => selectedDate = picked);
                         }
+                      },
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedRole,
+                      decoration: const InputDecoration(labelText: 'Rol *'),
+                      items: roles
+                          .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) setDialogState(() => selectedRole = value);
                       },
                     ),
                   ],
