@@ -3,16 +3,20 @@ import '../../../config/theme/app_theme.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int selectedIndex;
+  final bool isLoggedIn;
   final Function(int) onTabSelected;
   final VoidCallback onLoginPressed;
   final VoidCallback onRegisterPressed;
+  final VoidCallback onLogoutPressed;
 
   const CustomAppBar({
     super.key,
     required this.selectedIndex,
+    required this.isLoggedIn,
     required this.onTabSelected,
     required this.onLoginPressed,
     required this.onRegisterPressed,
+    required this.onLogoutPressed,
   });
 
   @override
@@ -37,35 +41,49 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               if (isCompact)
                 _buildCompactMenu(context)
               else ...[
-                // ITEMS DE NAVEGACIÓN
-                _buildNavItem('Inicio', 0),
-                const SizedBox(width: 20),
-                _buildNavItem('Registros', 1),
-                const SizedBox(width: 20),
-                _buildNavItem('Perfil', 2),
+                if (isLoggedIn) ...[
+                  // ITEMS DE NAVEGACIÓN (Solo visibles si se ha iniciado sesión)
+                  _buildNavItem('Inicio', 0),
+                  const SizedBox(width: 20),
+                  _buildNavItem('Registros', 1),
+                  const SizedBox(width: 20),
+                  _buildNavItem('Perfil', 2),
+                  const SizedBox(width: 28),
 
-                const SizedBox(width: 28),
-
-                // BOTONES DE AUTENTICACIÓN
-                ElevatedButton.icon(
-                  onPressed: onRegisterPressed,
-                  style: _authButtonStyle(),
-                  icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                  label: const Text(
-                    'Registrarse',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  // BOTÓN DE CERRAR SESIÓN
+                  IconButton(
+                    tooltip: 'Cerrar sesión',
+                    icon: const Icon(Icons.logout, color: Colors.redAccent),
+                    onPressed: onLogoutPressed,
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: onLoginPressed,
-                  style: _authButtonStyle(),
-                  icon: const Icon(Icons.person_outline, size: 18),
-                  label: const Text(
-                    'Iniciar sesión',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ] else ...[
+                  // BOTONES DE AUTENTICACIÓN (Solo visibles si NO se ha iniciado sesión)
+                  ElevatedButton.icon(
+                    onPressed: onRegisterPressed,
+                    style: _authButtonStyle(),
+                    icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                    label: const Text(
+                      'Registrarse',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: onLoginPressed,
+                    style: _authButtonStyle(),
+                    icon: const Icon(Icons.person_outline, size: 18),
+                    label: const Text(
+                      'Iniciar sesión',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ],
           );
@@ -128,35 +146,60 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             onTabSelected(1);
           case 'perfil':
             onTabSelected(2);
+          case 'logout':
+            onLogoutPressed();
           case 'registro':
             onRegisterPressed();
           case 'login':
             onLoginPressed();
         }
       },
-      itemBuilder: (context) => const [
-        PopupMenuItem(
-          value: 'inicio',
-          child: Text('Inicio', style: TextStyle(color: Colors.white)),
-        ),
-        PopupMenuItem(
-          value: 'registros',
-          child: Text('Registros', style: TextStyle(color: Colors.white)),
-        ),
-        PopupMenuItem(
-          value: 'perfil',
-          child: Text('Perfil', style: TextStyle(color: Colors.white)),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'registro',
-          child: Text('Registrarse', style: TextStyle(color: Colors.white)),
-        ),
-        PopupMenuItem(
-          value: 'login',
-          child: Text('Iniciar sesión', style: TextStyle(color: Colors.white)),
-        ),
-      ],
+      itemBuilder: (context) {
+        if (isLoggedIn) {
+          return const [
+            PopupMenuItem(
+              value: 'inicio',
+              child: Text('Inicio', style: TextStyle(color: Colors.white)),
+            ),
+            PopupMenuItem(
+              value: 'registros',
+              child: Text('Registros', style: TextStyle(color: Colors.white)),
+            ),
+            PopupMenuItem(
+              value: 'perfil',
+              child: Text('Perfil', style: TextStyle(color: Colors.white)),
+            ),
+            PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(Icons.logout, color: Colors.redAccent, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Cerrar sesión',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                ],
+              ),
+            ),
+          ];
+        } else {
+          return const [
+            PopupMenuItem(
+              value: 'registro',
+              child: Text('Registrarse', style: TextStyle(color: Colors.white)),
+            ),
+            PopupMenuItem(
+              value: 'login',
+              child: Text(
+                'Iniciar sesión',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ];
+        }
+      },
     );
   }
 
