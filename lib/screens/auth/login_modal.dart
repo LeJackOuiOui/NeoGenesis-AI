@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
+import '../../data/services/api_service.dart';
 import '../../main.dart';
 
 class LoginModal extends StatefulWidget {
@@ -14,10 +15,19 @@ class LoginModal extends StatefulWidget {
 class _LoginModalState extends State<LoginModal> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  late final ApiService _apiService;
+
   bool _rememberMe = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
-  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _apiService = ApiService(supabase);
+  }
 
   @override
   void dispose() {
@@ -38,21 +48,24 @@ class _LoginModalState extends State<LoginModal> {
     }
 
     setState(() => _isLoading = true);
+
     try {
-      await supabase.auth.signInWithPassword(email: email, password: password);
-      final currentUser = supabase.auth.currentUser;
-      final profile = currentUser == null
-          ? null
-          : await supabase
-              .from('profiles')
-              .select('estado')
-              .eq('id', currentUser.id)
-              .maybeSingle();
-      if (profile?['estado'] == 'Inactivo') {
-        await supabase.auth.signOut();
-        _showMessage('Tu usuario está inactivo. Contacta al administrador.', isError: true);
+      // 1. Intentar iniciar sesión usando el método login de ApiService
+      await _apiService.login(email: email, password: password);
+
+      // 2. Obtener el perfil del usuario logueado mediante ApiService
+      final userProfile = await _apiService.getCurrentUserProfile();
+
+      // 3. Validar si el usuario está inactivo en el sistema
+      if (userProfile?.estado == 'Inactivo') {
+        await _apiService.signOut();
+        _showMessage(
+          'Tu usuario está inactivo. Contacta al administrador.',
+          isError: true,
+        );
         return;
       }
+
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -63,8 +76,11 @@ class _LoginModalState extends State<LoginModal> {
       );
     } on AuthException catch (error) {
       _showMessage(error.message, isError: true);
-    } catch (_) {
-      _showMessage('No se pudo iniciar sesión.', isError: true);
+    } catch (error) {
+      _showMessage(
+        'No se pudo iniciar sesión. Verifica tus credenciales.',
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -152,138 +168,146 @@ class _LoginModalState extends State<LoginModal> {
                 child: Form(
                   key: _formKey,
                   child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Inicio de Sesión',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Ingresa tus credenciales para continuar',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Campo Correo
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
-                      decoration: InputDecoration(
-                        hintText: 'Correo electrónico',
-                        prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Inicio de Sesión',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textDark,
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Ingresa tu correo';
-                        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
-                          return 'Ingresa un correo válido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Ingresa tus credenciales para continuar',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      const SizedBox(height: 24),
 
-                    // Campo Contraseña
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        hintText: 'Contraseña',
-                        prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+                      // Campo Correo
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                        ],
+                        decoration: InputDecoration(
+                          hintText: 'Correo electrónico',
+                          prefixIcon: const Icon(
+                            Icons.email_outlined,
                             size: 20,
                           ),
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                      ),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Ingresa tu contraseña'
-                          : null,
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Recordarme & Olvidaste contraseña
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _rememberMe,
-                          activeColor: AppTheme.primaryGreen,
-                          onChanged: (val) =>
-                              setState(() => _rememberMe = val ?? false),
-                        ),
-                        const Text(
-                          'Recordarme',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {},
-                          child: const Text(
-                            '¿Olvidaste tu contraseña?',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.primaryGreen,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Botón Iniciar Sesión
-                    SizedBox(
-                      width: double.infinity,
-                      height: 45,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _signIn,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
+                          border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                'Iniciar sesión',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty)
+                            return 'Ingresa tu correo';
+                          if (!RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          ).hasMatch(value.trim())) {
+                            return 'Ingresa un correo válido';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
+                      const SizedBox(height: 16),
+
+                      // Campo Contraseña
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          hintText: 'Contraseña',
+                          prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 20,
+                            ),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                        ),
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Ingresa tu contraseña'
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Recordarme & Olvidaste contraseña
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _rememberMe,
+                            activeColor: AppTheme.primaryGreen,
+                            onChanged: (val) =>
+                                setState(() => _rememberMe = val ?? false),
+                          ),
+                          const Text(
+                            'Recordarme',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () {},
+                            child: const Text(
+                              '¿Olvidaste tu contraseña?',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.primaryGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Botón Iniciar Sesión
+                      SizedBox(
+                        width: double.infinity,
+                        height: 45,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _signIn,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryGreen,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Iniciar sesión',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

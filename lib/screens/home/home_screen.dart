@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
+import '../../main.dart';
 import 'widgets/custom_app_bar.dart';
 import 'widgets/custom_drawer.dart';
 import 'widgets/view_inicio.dart';
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
 
-// Modal de formulario de registro que creamos previamente
 import '../auth/login_modal.dart';
 import '../auth/register_modal.dart';
 
@@ -19,6 +21,29 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  late final StreamSubscription<AuthState> _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Escuchar cambios de estado en la autenticación (Login / Logout)
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      if (mounted) {
+        setState(() {
+          // Si cierra sesión y estaba en una vista no permitida, vuelve a Inicio
+          if (data.session == null && _selectedIndex != 0) {
+            _selectedIndex = 0;
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
 
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
@@ -38,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // --- MODAL CENTRADO DE REGISTRO ---
   void _showRegisterOptionsModal() {
     final screenContext = context;
     showDialog(
@@ -78,24 +102,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: Colors.grey[400], fontSize: 13),
               ),
               const SizedBox(height: 24),
-
-              // OPCIÓN 1: CON CORREO
               _buildModalOption(
                 icon: Icons.email_outlined,
                 title: 'Registrarse con Correo',
                 subtitle: 'Crea tu cuenta con un correo y contraseña',
                 onTap: () {
-                  Navigator.pop(context); // Cierra este modal
+                  Navigator.pop(context);
                   showDialog(
                     context: screenContext,
-                    builder: (context) =>
-                        const RegisterModal(), // Abre el formulario completo
+                    builder: (context) => const RegisterModal(),
                   );
                 },
               ),
               const SizedBox(height: 12),
-
-              // OPCIÓN 2: CON GOOGLE
               _buildModalOption(
                 icon: Icons.g_mobiledata_rounded,
                 iconSize: 28,
@@ -117,7 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- MODAL CENTRADO DE INICIO DE SESIÓN ---
   void _showLoginOptionsModal() {
     final screenContext = context;
     showDialog(
@@ -157,8 +175,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: Colors.grey[400], fontSize: 13),
               ),
               const SizedBox(height: 24),
-
-              // OPCIÓN 1: USUARIO
               _buildModalOption(
                 icon: Icons.person_outline,
                 title: 'Iniciar Sesión (Usuario)',
@@ -172,8 +188,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               const SizedBox(height: 12),
-
-              // OPCIÓN 2: ADMINISTRADOR
               _buildModalOption(
                 icon: Icons.admin_panel_settings_outlined,
                 title: 'Acceso Administrativo',
@@ -194,7 +208,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // BOTÓN REUTILIZABLE PARA LAS OPCIONES DEL MODAL
   Widget _buildModalOption({
     required IconData icon,
     required String title,
@@ -252,12 +265,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoggedIn = supabase.auth.currentSession != null;
+
     return Scaffold(
       appBar: CustomAppBar(
         selectedIndex: _selectedIndex,
+        isLoggedIn: isLoggedIn,
         onTabSelected: _onTabSelected,
         onLoginPressed: _showLoginOptionsModal,
         onRegisterPressed: _showRegisterOptionsModal,
+        onLogoutPressed: () async {
+          await supabase.auth.signOut();
+        },
       ),
       drawer: const CustomDrawer(),
       body: Stack(
