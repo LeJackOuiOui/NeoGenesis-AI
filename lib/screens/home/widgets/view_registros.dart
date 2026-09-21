@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../config/theme/app_theme.dart';
 import '../../../data/services/api_service.dart';
 import '../../../main.dart';
+import 'custom_otp_modal.dart'; // Importación del modal de OTP
 
 class ViewRegistros extends StatefulWidget {
   const ViewRegistros({super.key});
@@ -85,23 +86,24 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       final status = (employee['estado'] ?? '').toString();
       final matchesStatus =
           _selectedStatus == 'Todos' || status == _selectedStatus;
-      final hayCoincidencia = query.isEmpty ||
+      final hayCoincidencia =
+          query.isEmpty ||
           [
             employee['nombre'],
             employee['cargo'],
             employee['correo'],
             employee['tipoContrato'],
             employee['fecha'],
-          ].any(
-            (value) => value.toString().toLowerCase().contains(query),
-          );
+          ].any((value) => value.toString().toLowerCase().contains(query));
       return matchesStatus && hayCoincidencia;
     }).toList();
   }
 
   int _countByStatus(String status) {
     if (status == 'Todos') return _empleados.length;
-    return _empleados.where((employee) => (employee['estado'] ?? '') == status).length;
+    return _empleados
+        .where((employee) => (employee['estado'] ?? '') == status)
+        .length;
   }
 
   @override
@@ -141,7 +143,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       ],
                     ),
                     ElevatedButton.icon(
-                      onPressed: _showEmployeeDialog,
+                      onPressed: () => _showEmployeeDialog(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryGreen,
                         foregroundColor: Colors.white,
@@ -186,7 +188,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         ),
                         _buildKpiCard(
                           title: 'Bajas Lógicas',
-                          value: '${_empleados.where((employee) => employee['bajaLogica'] == true).length}',
+                          value:
+                              '${_empleados.where((employee) => employee['bajaLogica'] == true).length}',
                           icon: Icons.person_off_outlined,
                           width: cardWidth,
                         ),
@@ -212,7 +215,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                   child: Column(
                     children: [
                       if (_isLoadingUsers)
-                        const LinearProgressIndicator(color: AppTheme.primaryGreen),
+                        const LinearProgressIndicator(
+                          color: AppTheme.primaryGreen,
+                        ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
@@ -221,7 +226,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                               controller: _searchController,
                               onChanged: (_) => setState(() {}),
                               decoration: InputDecoration(
-                                hintText: 'Buscar por nombre, cargo o correo...',
+                                hintText:
+                                    'Buscar por nombre, cargo o correo...',
                                 prefixIcon: const Icon(
                                   Icons.search,
                                   color: AppTheme.primaryGreen,
@@ -234,7 +240,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: Colors.grey[200]!),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey[200]!,
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -269,13 +277,48 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                             AppTheme.lightGreenBg.withValues(alpha: 0.5),
                           ),
                           columns: const [
-                            DataColumn(label: Text('Empleado', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Cargo', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Contrato', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Salario', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Estado', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Fecha Ingreso', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Acciones', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(
+                              label: Text(
+                                'Empleado',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Cargo',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Contrato',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Salario',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Estado',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Fecha Ingreso',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Acciones',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
                           ],
                           rows: _filteredEmployees.map((item) {
                             final nombre = (item['nombre'] ?? '').toString();
@@ -304,7 +347,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                       const SizedBox(width: 12),
                                       Flexible(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               nombre,
@@ -326,23 +370,43 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                     ],
                                   ),
                                 ),
-                                DataCell(Text(cargo.isEmpty ? 'Sin cargo' : cargo)),
-                                DataCell(Text((item['tipoContrato'] ?? 'Tiempo Completo').toString())),
-                                DataCell(Text(_formatCurrency(item['salarioBase']))),
-                                DataCell(_buildStatusChip((item['estado'] ?? 'Activo').toString())),
-                                DataCell(Text((item['fecha'] ?? 'Sin fecha').toString())),
+                                DataCell(
+                                  Text(cargo.isEmpty ? 'Sin cargo' : cargo),
+                                ),
+                                DataCell(
+                                  Text(
+                                    (item['tipoContrato'] ?? 'Tiempo Completo')
+                                        .toString(),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(_formatCurrency(item['salarioBase'])),
+                                ),
+                                DataCell(_buildStatusSelector(item)),
+                                DataCell(
+                                  Text(
+                                    (item['fecha'] ?? 'Sin fecha').toString(),
+                                  ),
+                                ),
                                 DataCell(
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
                                         tooltip: 'Editar',
-                                        icon: const Icon(Icons.edit_outlined, color: AppTheme.primaryGreen),
-                                        onPressed: () => _showEmployeeDialog(employee: item),
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          color: AppTheme.primaryGreen,
+                                        ),
+                                        onPressed: () =>
+                                            _showEmployeeDialog(employee: item),
                                       ),
                                       IconButton(
                                         tooltip: 'Baja lógica',
-                                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red,
+                                        ),
                                         onPressed: () => _deleteEmployee(item),
                                       ),
                                     ],
@@ -365,24 +429,22 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     );
   }
 
-  Future<void> _deleteEmployee(Map<String, dynamic> employee) async {
-    final id = employee['id']?.toString();
-    if (id == null || id.isEmpty) return;
-  Widget _buildStatusSelector(Map<String, String> employee) {
+  Widget _buildStatusSelector(Map<String, dynamic> employee) {
+    final currentStatus = (employee['estado'] ?? 'Activo').toString();
     return PopupMenuButton<String>(
       tooltip: 'Cambiar estado',
-      initialValue: employee['estado'],
+      initialValue: currentStatus,
       onSelected: (status) async {
         final previousStatus = employee['estado'];
         setState(() => employee['estado'] = status);
         try {
           await _apiService.updateUserStatus(
-            userId: employee['id']!,
+            userId: employee['id'].toString(),
             status: status,
           );
         } catch (_) {
           if (!mounted) return;
-          setState(() => employee['estado'] = previousStatus!);
+          setState(() => employee['estado'] = previousStatus);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No se pudo actualizar el estado.')),
           );
@@ -396,13 +458,17 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildStatusChip(employee['estado']!),
+          _buildStatusChip(currentStatus),
           const SizedBox(width: 4),
           const Icon(Icons.arrow_drop_down, size: 18),
         ],
       ),
     );
   }
+
+  Future<void> _deleteEmployee(Map<String, dynamic> employee) async {
+    final id = employee['id']?.toString();
+    if (id == null || id.isEmpty) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -425,7 +491,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || !mounted) return;
 
     try {
       await _apiService.deactivateEmployee(userId: id);
@@ -438,30 +504,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Empleado dado de baja lógica.')),
-      );
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo desactivar al empleado.')),
-      );
-    }
-              child: const Text('Desactivar'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldDelete != true || !mounted) return;
-    try {
-      await _apiService.updateUserStatus(
-        userId: employee['id']!,
-        status: 'Inactivo',
-      );
-      if (!mounted) return;
-      setState(() => employee['estado'] = 'Inactivo');
-      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Usuario $nombre desactivado'),
+          content: Text('Usuario ${employee['nombre']} desactivado'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -472,129 +516,6 @@ class _ViewRegistrosState extends State<ViewRegistros> {
         const SnackBar(content: Text('No se pudo desactivar el usuario.')),
       );
     }
-  }
-
-  Future<void> _abrirModalEditar(Map<String, String> employee) async {
-    final nameController = TextEditingController(text: employee['nombre']);
-    final positionController = TextEditingController(text: employee['cargo']);
-    var selectedRole = employee['rol'] ?? 'Empleado';
-    var selectedDepartment = employee['departamento']!;
-    const departments = ['Tecnología', 'Recursos Humanos', 'Finanzas'];
-    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text('Editar: ${employee['nombre']}'),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre completo',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: positionController,
-                  decoration: const InputDecoration(labelText: 'Cargo'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: departments.contains(selectedDepartment)
-                      ? selectedDepartment
-                      : null,
-                  decoration: const InputDecoration(labelText: 'Departamento'),
-                  items: departments
-                      .map(
-                        (department) => DropdownMenuItem(
-                          value: department,
-                          child: Text(department),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => selectedDepartment = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: roles.contains(selectedRole) ? selectedRole : null,
-                  decoration: const InputDecoration(labelText: 'Rol'),
-                  items: roles
-                      .map((role) => DropdownMenuItem(value: role, child: Text(role)))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) setDialogState(() => selectedRole = value);
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty ||
-                    positionController.text.trim().isEmpty) {
-                  return;
-                }
-                try {
-                  final updated = await _apiService.updateUser(
-                    userId: employee['id']!,
-                    nombre: nameController.text,
-                    cargo: positionController.text,
-                    rol: selectedRole,
-                    estado: employee['estado']!,
-                  );
-                  if (!context.mounted) return;
-                  setState(() {
-                    employee['nombre'] = updated.nombre;
-                    employee['cargo'] = updated.cargo;
-                    employee['rol'] = updated.rol;
-                    employee['departamento'] = selectedDepartment;
-                  });
-                  Navigator.pop(dialogContext);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Información actualizada correctamente'),
-                      backgroundColor: AppTheme.primaryGreen,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                } catch (_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No se pudo actualizar el usuario.')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Guardar cambios'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    nameController.dispose();
-    positionController.dispose();
   }
 
   Future<void> _showEmployeeDialog({Map<String, dynamic>? employee}) async {
@@ -610,6 +531,10 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     final salarioController = TextEditingController(
       text: ((employee?['salarioBase'] ?? 0) as num).toString(),
     );
+
+    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
+    String selectedRole = (employee?['rol'] ?? 'Empleado').toString();
+
     const cargoOptions = [
       'Administrador',
       'Responsable RRHH',
@@ -631,9 +556,17 @@ class _ViewRegistrosState extends State<ViewRegistros> {
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .toSet();
-    final contratoOptions = ['Tiempo Completo', 'Medio Tiempo', 'Por Horas', 'Contrato Temporal'];
-    String selectedContrato = (employee?['tipoContrato'] ?? 'Tiempo Completo').toString();
-    DateTime selectedDate = (employee?['fechaIngreso'] as DateTime?) ?? DateTime.now();
+
+    const contratoOptions = [
+      'Tiempo Completo',
+      'Medio Tiempo',
+      'Por Horas',
+      'Contrato Temporal',
+    ];
+    String selectedContrato = (employee?['tipoContrato'] ?? 'Tiempo Completo')
+        .toString();
+    DateTime selectedDate =
+        (employee?['fechaIngreso'] as DateTime?) ?? DateTime.now();
 
     await showDialog<void>(
       context: context,
@@ -651,12 +584,20 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                     TextFormField(
                       controller: nombreController,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]')),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]'),
+                        ),
                       ],
-                      decoration: const InputDecoration(labelText: 'Nombre completo *'),
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre completo *',
+                      ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Ingresa el nombre';
-                        if (RegExp(r'\d').hasMatch(value)) return 'El nombre no puede contener números';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Ingresa el nombre';
+                        }
+                        if (RegExp(r'\d').hasMatch(value)) {
+                          return 'El nombre no puede contener números';
+                        }
                         return null;
                       },
                     ),
@@ -665,9 +606,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       controller: emailController,
                       enabled: !isEditing,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Correo institucional *'),
+                      decoration: const InputDecoration(
+                        labelText: 'Correo institucional *',
+                      ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Ingresa el correo';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Ingresa el correo';
+                        }
                         if (!ApiService.isValidGmailEmail(value)) {
                           return 'Usa un Gmail válido';
                         }
@@ -681,12 +626,16 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         obscureText: true,
                         decoration: const InputDecoration(
                           labelText: 'Contraseña inicial *',
-                          helperText: 'El empleado usará esta contraseña para iniciar sesión.',
+                          helperText:
+                              'El empleado usará esta contraseña para iniciar sesión.',
                         ),
                         validator: (value) {
-                          if (isEditing) return null;
-                          if (value == null || value.isEmpty) return 'Ingresa una contraseña';
-                          if (value.length < 6) return 'Usa al menos 6 caracteres';
+                          if (value == null || value.isEmpty) {
+                            return 'Ingresa una contraseña';
+                          }
+                          if (value.length < 6) {
+                            return 'Usa al menos 6 caracteres';
+                          }
                           return null;
                         },
                       ),
@@ -721,10 +670,14 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                               }
                             });
                           },
-                          selectedColor: AppTheme.primaryGreen.withValues(alpha: 0.16),
+                          selectedColor: AppTheme.primaryGreen.withValues(
+                            alpha: 0.16,
+                          ),
                           checkmarkColor: AppTheme.primaryGreen,
                           labelStyle: TextStyle(
-                            color: selected ? AppTheme.primaryGreen : AppTheme.textDark,
+                            color: selected
+                                ? AppTheme.primaryGreen
+                                : AppTheme.textDark,
                             fontWeight: FontWeight.w600,
                           ),
                         );
@@ -733,22 +686,41 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: salarioController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'\d*\.?\d'))],
-                      decoration: const InputDecoration(labelText: 'Salario base *'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'\d*\.?\d')),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Salario base *',
+                      ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Ingresa el salario';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Ingresa el salario';
+                        }
                         final parsed = double.tryParse(value);
-                        if (parsed == null || parsed <= 0) return 'Salario inválido';
+                        if (parsed == null || parsed <= 0) {
+                          return 'Salario inválido';
+                        }
                         return null;
                       },
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: contratoOptions.contains(selectedContrato) ? selectedContrato : contratoOptions.first,
-                      decoration: const InputDecoration(labelText: 'Tipo de contrato *'),
+                      value: contratoOptions.contains(selectedContrato)
+                          ? selectedContrato
+                          : contratoOptions.first,
+                      decoration: const InputDecoration(
+                        labelText: 'Tipo de contrato *',
+                      ),
                       items: contratoOptions
-                          .map((tipo) => DropdownMenuItem(value: tipo, child: Text(tipo)))
+                          .map(
+                            (tipo) => DropdownMenuItem(
+                              value: tipo,
+                              child: Text(tipo),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         if (value != null) {
@@ -774,14 +746,24 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         }
                       },
                     ),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      initialValue: selectedRole,
+                      value: roles.contains(selectedRole)
+                          ? selectedRole
+                          : roles.last,
                       decoration: const InputDecoration(labelText: 'Rol *'),
                       items: roles
-                          .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                          .map(
+                            (role) => DropdownMenuItem(
+                              value: role,
+                              child: Text(role),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
-                        if (value != null) setDialogState(() => selectedRole = value);
+                        if (value != null) {
+                          setDialogState(() => selectedRole = value);
+                        }
                       },
                     ),
                   ],
@@ -819,18 +801,50 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       fechaIngreso: selectedDate,
                     );
                   } else {
+                    // 1. Enviar el OTP al correo ingresado
+                    final email = emailController.text.trim();
+                    await supabase.auth.signInWithOtp(email: email);
+
+                    if (!context.mounted) return;
+
+                    // 2. Abrir el modal de verificación de OTP
+                    final verified = await showDialog<bool>(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => OtpVerificationDialog(
+                        email: email,
+                        apiService: _apiService,
+                      ),
+                    );
+
+                    // Si no se verificó el OTP, detiene el proceso de registro
+                    if (verified != true) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Verificación OTP cancelada o fallida.',
+                          ),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // 3. Registrar el usuario tras la verificación de OTP
                     final registration = await _apiService.registerHrUser(
                       nombre: nombreController.text,
-                      correo: emailController.text,
+                      correo: email,
                       telefono: '',
                       cargo: cargoValue.join(', '),
-                      rol: 'Empleado',
+                      rol: selectedRole,
                       password: passwordController.text,
                       estado: 'Activo',
                     );
                     final userId = registration.user.id;
                     if (userId == null || userId.isEmpty) {
-                      throw Exception('Supabase no devolvió el identificador del usuario.');
+                      throw Exception(
+                        'Supabase no devolvió el identificador del usuario.',
+                      );
                     }
                     await _apiService.updateEmployee(
                       userId: userId,
@@ -850,7 +864,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       content: Text(
                         isEditing
                             ? 'Empleado actualizado correctamente.'
-                          : 'Empleado registrado correctamente.',
+                            : 'Empleado registrado correctamente.',
                       ),
                       backgroundColor: AppTheme.primaryGreen,
                     ),
@@ -883,7 +897,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       [const Color(0xFF1976D2), const Color(0xFF64B5F6)],
       [const Color(0xFF7B1FA2), const Color(0xFFBA68C8)],
     ];
-    final selected = colors[(name.isEmpty ? 0 : name.codeUnitAt(0)) % colors.length];
+    final selected =
+        colors[(name.isEmpty ? 0 : name.codeUnitAt(0)) % colors.length];
     return LinearGradient(colors: selected);
   }
 
