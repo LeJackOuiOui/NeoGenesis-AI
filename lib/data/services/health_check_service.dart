@@ -1,10 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'audit_service.dart';
 
 class HealthService {
   final SupabaseClient _supabase;
+  final AuditService _auditService;
   final DateTime _startTime = DateTime.now();
 
-  HealthService(this._supabase);
+  HealthService(this._supabase) : _auditService = AuditService(_supabase);
 
   Future<Map<String, dynamic>> checkHealth() async {
     String dbStatus = 'disconnected';
@@ -12,14 +14,22 @@ class HealthService {
 
     try {
       final pingStart = DateTime.now();
-
       await _supabase.from('profiles').select('id').limit(1).maybeSingle();
-
-      final pingEnd = DateTime.now();
-      latencyMs = pingEnd.difference(pingStart).inMilliseconds;
+      latencyMs = DateTime.now().difference(pingStart).inMilliseconds;
       dbStatus = 'connected';
+
+      await _auditService.logHealthCheck(
+        exitoso: true,
+        mensaje: 'Health Check OK (${latencyMs}ms)',
+        metadata: {'latency_ms': latencyMs},
+      );
     } catch (e) {
       dbStatus = 'error: ${e.toString()}';
+
+      await _auditService.logHealthCheck(
+        exitoso: false,
+        mensaje: 'Error de conexión en Health Check: $e',
+      );
     }
 
     final isHealthy = dbStatus == 'connected';
