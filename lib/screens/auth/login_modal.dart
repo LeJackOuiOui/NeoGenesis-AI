@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
 import '../../data/services/api_service.dart';
 import '../../main.dart';
-// Importa tu servicio de auditoría
 import '../../data/services/audit_service.dart';
 
 class LoginModal extends StatefulWidget {
