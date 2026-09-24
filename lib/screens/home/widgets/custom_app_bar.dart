@@ -66,19 +66,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onPressed: onLogoutPressed,
                   ),
                 ] else ...[
-                  // BOTONES DE AUTENTICACIÓN
-                  ElevatedButton.icon(
-                    onPressed: onRegisterPressed,
-                    style: _authButtonStyle(),
-                    icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                    label: const Text(
-                      'Registrarse',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: onLoginPressed,

@@ -472,4 +472,20 @@ class ApiService {
   Future<void> resendOtp(String email) async {
     await client.auth.resend(type: OtpType.signup, email: email.trim());
   }
+
+  Future<void> deleteEmployee({required String userId}) async {
+    if (client.auth.currentSession == null) {
+      throw Exception('Debes iniciar sesión como Administrador.');
+    }
+    try {
+      await client.functions.invoke('delete-hr-user', body: {'userId': userId});
+    } on FunctionException catch (e) {
+      final details = e.details;
+      throw Exception(
+        details is Map && details['error'] != null
+            ? details['error'].toString()
+            : 'No se pudo eliminar el usuario.',
+      );
+    }
+  }
 }

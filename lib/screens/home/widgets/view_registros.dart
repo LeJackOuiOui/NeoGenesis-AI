@@ -18,6 +18,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
   String _selectedStatus = 'Todos';
   bool _isLoadingUsers = false;
   final List<Map<String, dynamic>> _empleados = [];
+  bool get _isAdmin {
+    final role =
+        (supabase.auth.currentUser?.userMetadata?['role'] as String?)
+            ?.toLowerCase() ??
+        '';
+    return role == 'administrador' || role == 'admin';
+  }
 
   @override
   void initState() {
@@ -142,25 +149,27 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         ),
                       ],
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () => _showEmployeeDialog(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryGreen,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
+                    if (_isAdmin) ...[
+                      ElevatedButton.icon(
+                        onPressed: () => _showEmployeeDialog(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        icon: const Icon(Icons.add, size: 20),
+                        label: const Text(
+                          'Nuevo Empleado',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      icon: const Icon(Icons.add, size: 20),
-                      label: const Text(
-                        'Nuevo Empleado',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 28),
@@ -276,7 +285,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                           headingRowColor: WidgetStateProperty.all(
                             AppTheme.lightGreenBg.withValues(alpha: 0.5),
                           ),
-                          columns: const [
+                          columns: [
                             DataColumn(
                               label: Text(
                                 'Empleado',
@@ -313,12 +322,14 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
-                            DataColumn(
-                              label: Text(
-                                'Acciones',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                            if (_isAdmin) ...[
+                              DataColumn(
+                                label: Text(
+                                  'Acciones',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                           rows: _filteredEmployees.map((item) {
                             final nombre = (item['nombre'] ?? '').toString();
@@ -382,36 +393,48 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                 DataCell(
                                   Text(_formatCurrency(item['salarioBase'])),
                                 ),
-                                DataCell(_buildStatusSelector(item)),
+                                if (_isAdmin) ...[
+                                  DataCell(_buildStatusSelector(item)),
+                                ] else ...[
+                                  DataCell(
+                                    _buildStatusChip(
+                                      item['estado'] ?? 'Activo',
+                                    ),
+                                  ),
+                                ],
                                 DataCell(
                                   Text(
                                     (item['fecha'] ?? 'Sin fecha').toString(),
                                   ),
                                 ),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        tooltip: 'Editar',
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          color: AppTheme.primaryGreen,
+                                if (_isAdmin) ...[
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Editar',
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            color: AppTheme.primaryGreen,
+                                          ),
+                                          onPressed: () => _showEmployeeDialog(
+                                            employee: item,
+                                          ),
                                         ),
-                                        onPressed: () =>
-                                            _showEmployeeDialog(employee: item),
-                                      ),
-                                      IconButton(
-                                        tooltip: 'Baja lógica',
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.red,
+                                        IconButton(
+                                          tooltip: 'Baja lógica',
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red,
+                                          ),
+                                          onPressed: () =>
+                                              _deleteEmployee(item),
                                         ),
-                                        onPressed: () => _deleteEmployee(item),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             );
                           }).toList(),
@@ -470,12 +493,20 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     final id = employee['id']?.toString();
     if (id == null || id.isEmpty) return;
 
+    if (id == supabase.auth.currentUser?.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No puedes eliminar tu propia cuenta.')),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirmar baja lógica'),
+        title: const Text('Eliminar empleado'),
         content: Text(
-          '¿Deseas desactivar a ${employee['nombre']} conservando el historial?',
+          '¿Deseas eliminar definitivamente a ${employee['nombre']}? '
+          'Esta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(
@@ -485,7 +516,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Desactivar'),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
@@ -494,27 +525,21 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     if (confirm != true || !mounted) return;
 
     try {
-      await _apiService.deactivateEmployee(userId: id);
+      await _apiService.deleteEmployee(userId: id);
       if (!mounted) return;
-      setState(() {
-        final index = _empleados.indexWhere((item) => item['id'] == id);
-        if (index >= 0) {
-          _empleados[index]['estado'] = 'Inactivo';
-          _empleados[index]['bajaLogica'] = true;
-        }
-      });
+      setState(() => _empleados.removeWhere((item) => item['id'] == id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Usuario ${employee['nombre']} desactivado'),
+          content: Text('Usuario ${employee['nombre']} eliminado'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo desactivar el usuario.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se pudo eliminar: $error')));
     }
   }
 
@@ -801,36 +826,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       fechaIngreso: selectedDate,
                     );
                   } else {
-                    // 1. Enviar el OTP al correo ingresado
                     final email = emailController.text.trim();
-                    await supabase.auth.signInWithOtp(email: email);
 
-                    if (!context.mounted) return;
-
-                    // 2. Abrir el modal de verificación de OTP
-                    final verified = await showDialog<bool>(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => OtpVerificationDialog(
-                        email: email,
-                        apiService: _apiService,
-                      ),
-                    );
-
-                    // Si no se verificó el OTP, detiene el proceso de registro
-                    if (verified != true) {
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Verificación OTP cancelada o fallida.',
-                          ),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
-
-                    // 3. Registrar el usuario tras la verificación de OTP
                     final registration = await _apiService.registerHrUser(
                       nombre: nombreController.text,
                       correo: email,
