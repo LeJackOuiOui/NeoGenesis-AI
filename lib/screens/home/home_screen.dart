@@ -25,7 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late final StreamSubscription<AuthState> _authSubscription;
 
   bool get _isAdmin {
-    final role = (supabase.auth.currentUser?.userMetadata?['role'] as String?)
+    final role =
+        (supabase.auth.currentUser?.userMetadata?['role'] as String?)
             ?.toLowerCase() ??
         '';
     return role == 'administrador' || role == 'admin';
@@ -36,10 +37,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Escuchar cambios de estado en la autenticación (Login / Logout)
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      final event = data.event;
+
       if (mounted) {
         setState(() {
           // Si cierra sesión o deja de ser admin estando en una vista restringida, vuelve a Inicio
-          if (data.session == null && _selectedIndex != 0) {
+          if (event == AuthChangeEvent.signedIn || session != null) {
+            if (_selectedIndex == 0) {
+              _selectedIndex = 0;
+            }
+          } else if (session == null && _selectedIndex != 0) {
             _selectedIndex = 0;
           }
         });
