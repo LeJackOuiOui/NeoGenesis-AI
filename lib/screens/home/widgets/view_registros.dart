@@ -18,6 +18,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
   String _selectedStatus = 'Todos';
   bool _isLoadingUsers = false;
   final List<Map<String, dynamic>> _empleados = [];
+  bool get _isAdmin {
+    final role =
+        (supabase.auth.currentUser?.userMetadata?['role'] as String?)
+            ?.toLowerCase() ??
+        '';
+    return role == 'administrador' || role == 'admin';
+  }
 
   @override
   void initState() {
@@ -142,25 +149,27 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         ),
                       ],
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () => _showEmployeeDialog(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryGreen,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
+                    if (_isAdmin) ...[
+                      ElevatedButton.icon(
+                        onPressed: () => _showEmployeeDialog(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        icon: const Icon(Icons.add, size: 20),
+                        label: const Text(
+                          'Nuevo Empleado',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      icon: const Icon(Icons.add, size: 20),
-                      label: const Text(
-                        'Nuevo Empleado',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 28),
@@ -276,7 +285,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                           headingRowColor: WidgetStateProperty.all(
                             AppTheme.lightGreenBg.withValues(alpha: 0.5),
                           ),
-                          columns: const [
+                          columns: [
                             DataColumn(
                               label: Text(
                                 'Empleado',
@@ -313,12 +322,14 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
-                            DataColumn(
-                              label: Text(
-                                'Acciones',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                            if (_isAdmin) ...[
+                              DataColumn(
+                                label: Text(
+                                  'Acciones',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                           rows: _filteredEmployees.map((item) {
                             final nombre = (item['nombre'] ?? '').toString();
@@ -388,30 +399,34 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                     (item['fecha'] ?? 'Sin fecha').toString(),
                                   ),
                                 ),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        tooltip: 'Editar',
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          color: AppTheme.primaryGreen,
+                                if (_isAdmin) ...[
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Editar',
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            color: AppTheme.primaryGreen,
+                                          ),
+                                          onPressed: () => _showEmployeeDialog(
+                                            employee: item,
+                                          ),
                                         ),
-                                        onPressed: () =>
-                                            _showEmployeeDialog(employee: item),
-                                      ),
-                                      IconButton(
-                                        tooltip: 'Baja lógica',
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.red,
+                                        IconButton(
+                                          tooltip: 'Baja lógica',
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red,
+                                          ),
+                                          onPressed: () =>
+                                              _deleteEmployee(item),
                                         ),
-                                        onPressed: () => _deleteEmployee(item),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             );
                           }).toList(),
