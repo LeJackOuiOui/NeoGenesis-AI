@@ -414,7 +414,7 @@ class ApiService {
 
   Future<void> updateUserStatus({
     required String userId,
-    required String status,
+    required String estado,
   }) async {
     final profile = await client
         .from('profiles')
@@ -426,7 +426,7 @@ class ApiService {
       nombre: profile['nombre'] as String? ?? '',
       cargo: profile['cargo'] as String? ?? '',
       rol: profile['role'] as String? ?? 'Empleado',
-      estado: status,
+      estado: estado,
     );
   }
 

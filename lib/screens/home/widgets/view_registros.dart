@@ -275,170 +275,208 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                             _buildStatusFilter('Todos'),
                             _buildStatusFilter('Activo'),
                             _buildStatusFilter('Inactivo'),
+                            _buildStatusFilter('En Vacaciones'),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(
-                            AppTheme.lightGreenBg.withValues(alpha: 0.5),
-                          ),
-                          columns: [
-                            DataColumn(
-                              label: Text(
-                                'Empleado',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: constraints.maxWidth - 40,
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Cargo',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Contrato',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Salario',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Estado',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Fecha Ingreso',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            if (_isAdmin) ...[
-                              DataColumn(
-                                label: Text(
-                                  'Acciones',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
+                              child: DataTable(
+                                columnSpacing:
+                                    20, // Reduce el espacio entre columnas para optimizar espacio
+                                headingRowColor: WidgetStateProperty.all(
+                                  AppTheme.lightGreenBg.withValues(alpha: 0.5),
                                 ),
-                              ),
-                            ],
-                          ],
-                          rows: _filteredEmployees.map((item) {
-                            final nombre = (item['nombre'] ?? '').toString();
-                            final cargo = (item['cargo'] ?? '').toString();
-                            return DataRow(
-                              cells: [
-                                DataCell(
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: _avatarGradient(nombre),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          _avatarInitial(nombre),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
+                                columns: [
+                                  DataColumn(
+                                    label: Text(
+                                      'Empleado',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Cargo',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Contrato',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Salario',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Estado',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Fecha Ingreso',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_isAdmin) ...[
+                                    DataColumn(
+                                      label: Text(
+                                        'Acciones',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Flexible(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                    ),
+                                  ],
+                                ],
+                                rows: _filteredEmployees.map((item) {
+                                  final nombre = (item['nombre'] ?? '')
+                                      .toString();
+                                  final cargo = (item['cargo'] ?? '')
+                                      .toString();
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(
+                                        Row(
                                           children: [
-                                            Text(
-                                              nombre,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.textDark,
+                                            Container(
+                                              width: 36,
+                                              height: 36,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: _avatarGradient(
+                                                  nombre,
+                                                ),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                _avatarInitial(nombre),
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                             ),
-                                            Text(
-                                              (item['correo'] ?? '').toString(),
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey[600],
+                                            const SizedBox(width: 12),
+                                            Flexible(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    nombre,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: AppTheme.textDark,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    (item['correo'] ?? '')
+                                                        .toString(),
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(cargo.isEmpty ? 'Sin cargo' : cargo),
-                                ),
-                                DataCell(
-                                  Text(
-                                    (item['tipoContrato'] ?? 'Tiempo Completo')
-                                        .toString(),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(_formatCurrency(item['salarioBase'])),
-                                ),
-                                if (_isAdmin) ...[
-                                  DataCell(_buildStatusSelector(item)),
-                                ] else ...[
-                                  DataCell(
-                                    _buildStatusChip(
-                                      item['estado'] ?? 'Activo',
-                                    ),
-                                  ),
-                                ],
-                                DataCell(
-                                  Text(
-                                    (item['fecha'] ?? 'Sin fecha').toString(),
-                                  ),
-                                ),
-                                if (_isAdmin) ...[
-                                  DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          tooltip: 'Editar',
-                                          icon: const Icon(
-                                            Icons.edit_outlined,
-                                            color: AppTheme.primaryGreen,
-                                          ),
-                                          onPressed: () => _showEmployeeDialog(
-                                            employee: item,
-                                          ),
+                                      DataCell(
+                                        Text(
+                                          cargo.isEmpty ? 'Sin cargo' : cargo,
                                         ),
-                                        IconButton(
-                                          tooltip: 'Baja lógica',
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.red,
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          (item['tipoContrato'] ??
+                                                  'Tiempo Completo')
+                                              .toString(),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          _formatCurrency(item['salarioBase']),
+                                        ),
+                                      ),
+                                      if (_isAdmin) ...[
+                                        DataCell(_buildStatusSelector(item)),
+                                      ] else ...[
+                                        DataCell(
+                                          _buildStatusChip(
+                                            item['estado'] ?? 'Activo',
                                           ),
-                                          onPressed: () =>
-                                              _deleteEmployee(item),
                                         ),
                                       ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            );
-                          }).toList(),
-                        ),
+                                      DataCell(
+                                        Text(
+                                          (item['fecha'] ?? 'Sin fecha')
+                                              .toString(),
+                                        ),
+                                      ),
+                                      if (_isAdmin) ...[
+                                        DataCell(
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                tooltip: 'Editar',
+                                                icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  color: AppTheme.primaryGreen,
+                                                ),
+                                                onPressed: () =>
+                                                    _showEmployeeDialog(
+                                                      employee: item,
+                                                    ),
+                                              ),
+                                              IconButton(
+                                                tooltip: 'Baja lógica',
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Colors.red,
+                                                ),
+                                                onPressed: () =>
+                                                    _deleteEmployee(item),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -454,23 +492,34 @@ class _ViewRegistrosState extends State<ViewRegistros> {
 
   Widget _buildStatusSelector(Map<String, dynamic> employee) {
     final currentStatus = (employee['estado'] ?? 'Activo').toString();
+
     return PopupMenuButton<String>(
       tooltip: 'Cambiar estado',
       initialValue: currentStatus,
       onSelected: (status) async {
-        final previousStatus = employee['estado'];
-        setState(() => employee['estado'] = status);
-        try {
-          await _apiService.updateUserStatus(
-            userId: employee['id'].toString(),
-            status: status,
-          );
-        } catch (_) {
-          if (!mounted) return;
-          setState(() => employee['estado'] = previousStatus);
+        final userId = employee['id']?.toString();
+        if (userId == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se pudo actualizar el estado.')),
+            const SnackBar(content: Text('ID de empleado no válido.')),
           );
+          return;
+        }
+
+        final previousStatus = employee['estado'];
+
+        setState(() {
+          employee['estado'] = status;
+        });
+        try {
+          await _apiService.updateUserStatus(userId: userId, estado: status);
+        } catch (e) {
+          if (!mounted) return;
+          setState(() {
+            employee['estado'] = previousStatus;
+          });
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error al actualizar: $e')));
         }
       },
       itemBuilder: (context) => const [
