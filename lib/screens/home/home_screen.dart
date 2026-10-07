@@ -6,6 +6,7 @@ import '../../main.dart';
 import 'widgets/custom_app_bar.dart';
 import 'widgets/custom_drawer.dart';
 import 'widgets/view_inicio.dart';
+import 'widgets/view_candidatos.dart';
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
 
@@ -51,6 +52,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return const ViewRegistros();
       case 2:
         return const ViewPerfil();
+      case 3:
+        return const ViewCandidatos();
       case 0:
       default:
         return const ViewInicio();
