@@ -4,6 +4,7 @@ import '../../../config/theme/app_theme.dart';
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int selectedIndex;
   final bool isLoggedIn;
+  final bool isAdmin;
   final Function(int) onTabSelected;
   final VoidCallback onLoginPressed;
   final VoidCallback onRegisterPressed;
@@ -13,6 +14,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.selectedIndex,
     required this.isLoggedIn,
+    this.isAdmin = false,
     required this.onTabSelected,
     required this.onLoginPressed,
     required this.onRegisterPressed,
@@ -42,7 +44,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 _buildCompactMenu(context)
               else ...[
                 if (isLoggedIn) ...[
-                  // ITEMS DE NAVEGACIÓN (Solo visibles si se ha iniciado sesión)
+                  // ITEMS DE NAVEGACIÓN
                   _buildNavItem('Inicio', 0),
                   const SizedBox(width: 20),
                   _buildNavItem('Registros', 1),
@@ -50,6 +52,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   _buildNavItem('Candidatos', 3),
                   const SizedBox(width: 20),
                   _buildNavItem('Perfil', 2),
+
+                  // Se renderiza la opción "Logs" SOLO si el usuario es Administrador
+                  if (isAdmin) ...[
+                    const SizedBox(width: 20),
+                    _buildNavItem('Logs', 3),
+                  ],
+
                   const SizedBox(width: 28),
 
                   // BOTÓN DE CERRAR SESIÓN
@@ -59,19 +68,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     onPressed: onLogoutPressed,
                   ),
                 ] else ...[
-                  // BOTONES DE AUTENTICACIÓN (Solo visibles si NO se ha iniciado sesión)
-                  ElevatedButton.icon(
-                    onPressed: onRegisterPressed,
-                    style: _authButtonStyle(),
-                    icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                    label: const Text(
-                      'Registrarse',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: onLoginPressed,
@@ -150,6 +146,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             onTabSelected(2);
           case 'candidatos':
             onTabSelected(3);
+          case 'logs':
+            onTabSelected(4);
           case 'logout':
             onLogoutPressed();
           case 'registro':
@@ -160,25 +158,30 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       },
       itemBuilder: (context) {
         if (isLoggedIn) {
-          return const [
-            PopupMenuItem(
+          return [
+            const PopupMenuItem(
               value: 'inicio',
               child: Text('Inicio', style: TextStyle(color: Colors.white)),
             ),
-            PopupMenuItem(
+            const PopupMenuItem(
               value: 'registros',
               child: Text('Registros', style: TextStyle(color: Colors.white)),
             ),
-            PopupMenuItem(
+            const PopupMenuItem(
               value: 'candidatos',
               child: Text('Candidatos', style: TextStyle(color: Colors.white)),
             ),
-            PopupMenuItem(
+            const PopupMenuItem(
               value: 'perfil',
               child: Text('Perfil', style: TextStyle(color: Colors.white)),
             ),
-            PopupMenuDivider(),
-            PopupMenuItem(
+            if (isAdmin)
+              const PopupMenuItem(
+                value: 'logs',
+                child: Text('Logs', style: TextStyle(color: Colors.white)),
+              ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
               value: 'logout',
               child: Row(
                 children: [

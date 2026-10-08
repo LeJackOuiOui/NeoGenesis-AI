@@ -19,18 +19,18 @@ class _CarouselWidgetState extends State<CarouselWidget> {
 
   final List<Map<String, String>> _carouselItems = [
     {
-      'image': 'assets/images/carrusel_1.jpeg',
+      'image': '../../../assets/images/carrusel_1.jpeg',
       'title': 'Optimiza la Gestión Humana',
       'subtitle':
           'Potencia el desarrollo de tu equipo con herramientas inteligentes.',
     },
     {
-      'image': 'assets/images/logo_neogenesis.png',
+      'image': '../../../assets/images/logo_Neogenesis.png',
       'title': 'Nómina Autónoma y Precisa',
       'subtitle': 'Automatiza procesos complejos y reduce tiempos de cálculo.',
     },
     {
-      'image': 'assets/images/carrusel_1.jpeg',
+      'image': '../../../assets/images/carrusel_1.jpeg',
       'title': 'Toma de Decisiones con IA',
       'subtitle': 'Analíticas avanzadas en tiempo real para tu organización.',
     },
