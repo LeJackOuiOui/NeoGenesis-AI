@@ -2,8 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../config/theme/app_theme.dart';
 import '../../../main.dart';
+import '../../../models/job.dart';
+import '../../../data/mock_candidates.dart';
 import '../../auth/login_modal.dart';
 import '../../auth/register_modal.dart';
+import '../candidate_ranking_screen.dart';
 
 class CarouselWidget extends StatefulWidget {
   const CarouselWidget({super.key});
@@ -19,7 +22,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
 
   final List<Map<String, String>> _carouselItems = [
     {
-      'image': 'assets/images/carrusel_1.jpeg',
+      'image': '../../../assets/images/carrusel_1.jpeg',
       'title': 'Optimiza la Gestión Humana',
       'subtitle':
           'Potencia el desarrollo de tu equipo con herramientas inteligentes.',
@@ -30,7 +33,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
       'subtitle': 'Automatiza procesos complejos y reduce tiempos de cálculo.',
     },
     {
-      'image': 'assets/images/carrusel_1.jpeg',
+      'image': '../../../assets/images/carrusel_1.jpeg',
       'title': 'Toma de Decisiones con IA',
       'subtitle': 'Analíticas avanzadas en tiempo real para tu organización.',
     },
@@ -532,6 +535,19 @@ class _ViewInicioState extends State<ViewInicio> {
                               'Control de actividad de usuarios',
                             ],
                           ),
+                          _buildInfoCard(
+                            width: cardWidth,
+                            icon: Icons.psychology_outlined,
+                            title: 'Selección Inteligente',
+                            description:
+                                'Encuentra los candidatos con mayor afinidad con cada vacante.',
+                            rutaModulo: '/seleccion',
+                            features: [
+                              'Comparación semántica de CVs',
+                              'Puntaje por experiencia y habilidades',
+                              'Ranking automático de candidatos',
+                            ],
+                          ),
                         ],
                       );
                     },
@@ -800,6 +816,29 @@ class _ViewInicioState extends State<ViewInicio> {
                         Navigator.of(context).pop();
 
                         if (isAuthenticated) {
+                          if (rutaModulo == '/seleccion') {
+                            Navigator.of(screenContext).push(
+                              MaterialPageRoute(
+                                builder: (_) => CandidateRankingScreen(
+                                  candidates: MockCandidates.all,
+                                  job: Job(
+                                    id: 'job-1',
+                                    title: 'Desarrollador Flutter',
+                                    description:
+                                        'Buscamos desarrollador Flutter con experiencia en aplicaciones móviles, Dart y Firebase.',
+                                    requiredSkills: [
+                                      'Flutter',
+                                      'Dart',
+                                      'Firebase',
+                                    ],
+                                    requiredExperienceYears: 2,
+                                  ),
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
                           ScaffoldMessenger.of(screenContext).showSnackBar(
                             SnackBar(
                               content: Text(

@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
 import 'widgets/custom_sidebar.dart';
 import 'widgets/view_inicio.dart';
+import 'widgets/view_candidatos.dart';
+import 'widgets/view_vacantes.dart';
+import 'widgets/view_logs.dart'; // <--- 1. Importación de la nueva vista
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
 
-// Modal de formulario de registro que creamos previamente
 import '../auth/login_modal.dart';
 import '../auth/register_modal.dart';
 
@@ -19,17 +23,58 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool? _sidebarExpanded;
+  late final StreamSubscription<AuthState> _authSubscription;
+
+  bool get _isAdmin {
+    final role =
+        (supabase.auth.currentUser?.userMetadata?['role'] as String?)
+            ?.toLowerCase() ??
+        '';
+    return role == 'administrador' || role == 'admin';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Escuchar cambios de estado en la autenticación (Login / Logout)
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      final event = data.event;
+
+      if (mounted) {
+        setState(() {
+          // Si cierra sesión o deja de ser admin estando en una vista restringida, vuelve a Inicio
+          if (event == AuthChangeEvent.signedIn || session != null) {
+            if (_selectedIndex == 0) {
+              _selectedIndex = 0;
+            }
+          } else if (session == null && _selectedIndex != 0) {
+            _selectedIndex = 0;
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
 
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
       case 1:
         return const ViewRegistros();
-      case 4:
-        return const ViewPerfil();
       case 2:
-        return _buildComingSoon('Candidatos', '👥');
+        return const ViewPerfil();
       case 3:
-        return _buildComingSoon('Vacantes', '💼');
+        return const ViewCandidatos();
+      case 4:
+        return const ViewVacantes();
+      case 5:
+        // 2. Renderiza ViewLogs solo si el usuario tiene rol de administrador
+        return _isAdmin ? const ViewLogs() : const ViewInicio();
       case 0:
       default:
         return const ViewInicio();
@@ -121,24 +166,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: Colors.grey[400], fontSize: 13),
               ),
               const SizedBox(height: 24),
-
-              // OPCIÓN 1: CON CORREO
               _buildModalOption(
                 icon: Icons.email_outlined,
                 title: 'Registrarse con Correo',
                 subtitle: 'Crea tu cuenta con un correo y contraseña',
                 onTap: () {
-                  Navigator.pop(context); // Cierra este modal
+                  Navigator.pop(context);
                   showDialog(
                     context: screenContext,
-                    builder: (context) =>
-                        const RegisterModal(), // Abre el formulario completo
+                    builder: (context) => const RegisterModal(),
                   );
                 },
               ),
               const SizedBox(height: 12),
-
-              // OPCIÓN 2: CON GOOGLE
               _buildModalOption(
                 icon: Icons.g_mobiledata_rounded,
                 iconSize: 28,
@@ -160,7 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- MODAL CENTRADO DE INICIO DE SESIÓN ---
   void _showLoginOptionsModal() {
     final screenContext = context;
     showDialog(
@@ -200,8 +239,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: Colors.grey[400], fontSize: 13),
               ),
               const SizedBox(height: 24),
-
-              // OPCIÓN 1: USUARIO
               _buildModalOption(
                 icon: Icons.person_outline,
                 title: 'Iniciar Sesión (Usuario)',
@@ -215,18 +252,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               const SizedBox(height: 12),
-
-              // OPCIÓN 2: ADMINISTRADOR
               _buildModalOption(
                 icon: Icons.admin_panel_settings_outlined,
                 title: 'Acceso Administrativo',
                 subtitle: 'Portal exclusivo para administradores',
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Acceso Administrador seleccionado'),
-                    ),
+                  showDialog(
+                    context: screenContext,
+                    builder: (context) => const LoginModal(),
                   );
                 },
               ),
@@ -237,7 +271,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // BOTÓN REUTILIZABLE PARA LAS OPCIONES DEL MODAL
   Widget _buildModalOption({
     required IconData icon,
     required String title,
@@ -295,6 +328,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoggedIn = supabase.auth.currentSession != null;
+
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {

@@ -1,0 +1,7 @@
+project_id = "mvaujcjymykgakfcjvjt"
+
+[functions.create-hr-user]
+verify_jwt = true
+
+[functions.extract-cv]
+verify_jwt = true

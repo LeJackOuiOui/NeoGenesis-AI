@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
-import '../../../main.dart'; // Para acceder a la instancia global 'supabase'
+import '../../../core/utils/validators.dart';
+import '../../data/services/api_service.dart';
+import '../../../main.dart';
 
 class RegisterModal extends StatefulWidget {
   const RegisterModal({super.key});
@@ -13,17 +16,40 @@ class _RegisterModalState extends State<RegisterModal> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _roleController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  static const _roles = [
+    'Administrador',
+    'Reclutador',
+    'Responsable RRHH',
+    'Empleado',
+  ];
+
+  static const _cargos = [
+    'Analista de Recursos Humanos',
+    'Reclutador',
+    'Responsable de Nómina',
+    'Coordinador de Recursos Humanos',
+    'Asistente de Recursos Humanos',
+    'Empleado',
+  ];
+
+  String _selectedRole = 'Empleado';
+  String _selectedCargo = _cargos.first;
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _roleController.dispose();
     _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -31,29 +57,66 @@ class _RegisterModalState extends State<RegisterModal> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    final email = _emailController.text.trim().toLowerCase();
 
     try {
-      await supabase.from('profiles').insert({
-        'nombre': _nameController.text.trim(),
-        'correo': _emailController.text.trim(),
-        'cargo': _roleController.text.trim(),
-        'telefono': _phoneController.text.trim(),
-      });
+      final authResponse = await supabase.auth.signUp(
+        email: email,
+        password: _passwordController.text,
+        data: {
+          'full_name': _nameController.text.trim(),
+          'position': _selectedCargo,
+          'role': _selectedRole,
+          'phone': _phoneController.text.trim(),
+        },
+      );
+
+      final user = authResponse.user;
+      if (user == null) {
+        throw const AuthException('No se pudo crear el usuario.');
+      }
+
+      // The database trigger creates the profile when email confirmation is enabled.
+      // If a session is available, this also repairs profiles created before the trigger.
+      if (authResponse.session != null) {
+        await supabase.from('profiles').upsert({
+          'id': user.id,
+          'nombre': _nameController.text.trim(),
+          'email': email,
+          'telefono': _phoneController.text.trim(),
+          'cargo': _selectedCargo,
+          'role': _selectedRole,
+          'estado': 'Activo',
+        });
+      }
 
       if (!mounted) return;
-
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Información guardada correctamente.'),
+        SnackBar(
+          content: Text(
+            authResponse.session == null
+                ? 'Cuenta creada. Revisa tu correo para confirmar el acceso.'
+                : 'Cuenta creada correctamente. Ya puedes iniciar sesión.',
+          ),
           backgroundColor: AppTheme.primaryGreen,
+        ),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: Colors.redAccent,
         ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo guardar la información.'),
+        SnackBar(
+          content: Text(
+            'La cuenta se creó, pero no se pudo guardar el perfil: $error',
+          ),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -114,10 +177,11 @@ class _RegisterModalState extends State<RegisterModal> {
                 TextFormField(
                   controller: _nameController,
                   style: const TextStyle(color: Colors.white),
+                  inputFormatters: [FormValidators.nameInputFormatter],
+                  maxLength: 100,
+                  buildCounter: _hideCounter,
                   decoration: _inputDecoration('Tu nombre completo'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Ingresa tu nombre'
-                      : null,
+                  validator: FormValidators.personName,
                 ),
                 const SizedBox(height: 16),
 
@@ -130,18 +194,25 @@ class _RegisterModalState extends State<RegisterModal> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _roleController,
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedCargo,
+                  dropdownColor: AppTheme.textDark,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Tu cargo'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Ingresa tu cargo'
-                      : null,
+                  decoration: _inputDecoration('Selecciona tu cargo'),
+                  items: _cargos
+                      .map(
+                        (cargo) =>
+                            DropdownMenuItem(value: cargo, child: Text(cargo)),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setState(() => _selectedCargo = value);
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 const Text(
-                  'Teléfono',
+                  'Rol',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 13,
@@ -149,14 +220,20 @@ class _RegisterModalState extends State<RegisterModal> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedRole,
+                  dropdownColor: AppTheme.textDark,
                   style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Tu teléfono'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Ingresa tu teléfono'
-                      : null,
+                  decoration: _inputDecoration('Selecciona tu rol'),
+                  items: _roles
+                      .map(
+                        (role) =>
+                            DropdownMenuItem(value: role, child: Text(role)),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setState(() => _selectedRole = value);
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -173,6 +250,9 @@ class _RegisterModalState extends State<RegisterModal> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  inputFormatters: [FormValidators.emailInputFormatter],
+                  maxLength: 254,
+                  buildCounter: _hideCounter,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'ejemplo@correo.com',
@@ -190,16 +270,120 @@ class _RegisterModalState extends State<RegisterModal> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Ingresa tu correo';
-                    }
-                    if (!RegExp(
-                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                    ).hasMatch(value.trim())) {
-                      return 'Ingresa un correo válido';
+                    final formatError = FormValidators.email(value);
+                    if (formatError != null) return formatError;
+                    final email = (value ?? '').trim().toLowerCase();
+                    if (!ApiService.isValidGmailEmail(email)) {
+                      return 'Usa un correo Gmail válido';
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+
+                const Text(
+                  'Teléfono',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FormValidators.phoneInputFormatter],
+                  maxLength: 20,
+                  buildCounter: _hideCounter,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Tu número de teléfono'),
+                  validator: FormValidators.phone,
+                ),
+                const SizedBox(height: 16),
+
+                const Text(
+                  'Contraseña',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(color: Colors.white),
+                  decoration:
+                      _inputDecoration(
+                        'Contraseña (mínimo 8 caracteres, letras y números)',
+                      ).copyWith(
+                        prefixIcon: const Icon(
+                          Icons.lock_outline,
+                          color: Colors.grey,
+                          size: 20,
+                        ),
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword
+                              ? 'Mostrar contraseña'
+                              : 'Ocultar contraseña',
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                        ),
+                      ),
+                  validator: FormValidators.password,
+                ),
+                const SizedBox(height: 16),
+
+                const Text(
+                  'Confirmar contraseña',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Repite tu contraseña').copyWith(
+                    prefixIcon: const Icon(
+                      Icons.lock_outline,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                    suffixIcon: IconButton(
+                      tooltip: _obscureConfirmPassword
+                          ? 'Mostrar contraseña'
+                          : 'Ocultar contraseña',
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () => setState(
+                        () =>
+                            _obscureConfirmPassword = !_obscureConfirmPassword,
+                      ),
+                    ),
+                  ),
+                  validator: (value) => FormValidators.confirmedPassword(
+                    value,
+                    _passwordController.text,
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -254,4 +438,11 @@ class _RegisterModalState extends State<RegisterModal> {
       ),
     );
   }
+
+  Widget? _hideCounter(
+    BuildContext context, {
+    required int currentLength,
+    required bool isFocused,
+    required int? maxLength,
+  }) => null;
 }
