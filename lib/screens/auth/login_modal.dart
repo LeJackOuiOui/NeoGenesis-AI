@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
+import '../../core/utils/validators.dart';
 import '../../data/services/api_service.dart';
 import '../../main.dart';
 import '../../data/services/audit_service.dart';
@@ -130,6 +130,13 @@ class _LoginModalState extends State<LoginModal> {
     );
   }
 
+  Widget? _hideCounter(
+    BuildContext context, {
+    required int currentLength,
+    required bool isFocused,
+    required int? maxLength,
+  }) => null;
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -223,9 +230,9 @@ class _LoginModalState extends State<LoginModal> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.deny(RegExp(r'\s')),
-                        ],
+                        inputFormatters: [FormValidators.emailInputFormatter],
+                        maxLength: 254,
+                        buildCounter: _hideCounter,
                         decoration: InputDecoration(
                           hintText: 'Correo electrónico',
                           prefixIcon: const Icon(

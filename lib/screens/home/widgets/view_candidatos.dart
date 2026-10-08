@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/validators.dart';
 import '../../../data/models/candidate_model.dart';
 import '../../../data/services/candidate_service.dart';
+import '../../../data/services/vacancy_service.dart';
 import '../../../main.dart';
 
 class ViewCandidatos extends StatefulWidget {
@@ -47,10 +49,22 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
           ..clear()
           ..addAll(candidates);
       });
+      await _reevaluateVacancies(candidates);
     } catch (error) {
       if (mounted) setState(() => _loadError = error.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _reevaluateVacancies(List<CandidateModel> candidates) async {
+    final vacancyService = VacancyService(supabase);
+    final vacancies = await vacancyService.fetchVacancies();
+    for (final vacancy in vacancies) {
+      await vacancyService.evaluateCandidates(
+        vacancy: vacancy,
+        candidates: candidates,
+      );
     }
   }
 
@@ -84,26 +98,37 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
               children: [
                 TextFormField(
                   controller: nameController,
+                  inputFormatters: [FormValidators.nameInputFormatter],
+                  maxLength: 100,
+                  buildCounter: _hideCounter,
                   decoration: const InputDecoration(
                     labelText: 'Nombre completo *',
                   ),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Ingresa el nombre del candidato.'
-                      : null,
+                  validator: FormValidators.personName,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
+                  inputFormatters: [FormValidators.emailInputFormatter],
+                  maxLength: 254,
+                  buildCounter: _hideCounter,
                   decoration: const InputDecoration(
                     labelText: 'Correo electrónico',
                   ),
+                  validator: (value) =>
+                      FormValidators.email(value, required: false),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [FormValidators.phoneInputFormatter],
+                  maxLength: 20,
+                  buildCounter: _hideCounter,
                   decoration: const InputDecoration(labelText: 'Teléfono'),
+                  validator: (value) =>
+                      FormValidators.phone(value, required: false),
                 ),
               ],
             ),
@@ -356,6 +381,7 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
                   TextFormField(
                     controller: summaryController,
                     maxLines: 3,
+                    maxLength: 2000,
                     decoration: const InputDecoration(
                       labelText: 'Resumen profesional',
                     ),
@@ -364,6 +390,7 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
                   TextFormField(
                     controller: skillsController,
                     maxLines: 2,
+                    maxLength: 1000,
                     decoration: const InputDecoration(
                       labelText: 'Habilidades',
                       helperText: 'Separadas por comas.',
@@ -373,6 +400,7 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
                   TextFormField(
                     controller: experienceController,
                     maxLines: 4,
+                    maxLength: 4000,
                     decoration: const InputDecoration(
                       labelText: 'Experiencia',
                       helperText: 'Una experiencia por línea.',
@@ -382,6 +410,7 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
                   TextFormField(
                     controller: educationController,
                     maxLines: 4,
+                    maxLength: 2000,
                     decoration: const InputDecoration(
                       labelText: 'Formación',
                       helperText: 'Una formación por línea.',
@@ -551,6 +580,13 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
       ),
     );
   }
+
+  Widget? _hideCounter(
+    BuildContext context, {
+    required int currentLength,
+    required bool isFocused,
+    required int? maxLength,
+  }) => null;
 
   @override
   Widget build(BuildContext context) {

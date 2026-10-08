@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/validators.dart';
 import '../../../data/services/api_service.dart';
 import '../../../main.dart';
 import 'custom_otp_modal.dart'; // Importación del modal de OTP
@@ -657,29 +657,22 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                   children: [
                     TextFormField(
                       controller: nombreController,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]'),
-                        ),
-                      ],
+                      inputFormatters: [FormValidators.nameInputFormatter],
+                      maxLength: 100,
+                      buildCounter: _hideCounter,
                       decoration: const InputDecoration(
                         labelText: 'Nombre completo *',
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Ingresa el nombre';
-                        }
-                        if (RegExp(r'\d').hasMatch(value)) {
-                          return 'El nombre no puede contener números';
-                        }
-                        return null;
-                      },
+                      validator: FormValidators.personName,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: emailController,
                       enabled: !isEditing,
                       keyboardType: TextInputType.emailAddress,
+                      inputFormatters: [FormValidators.emailInputFormatter],
+                      maxLength: 254,
+                      buildCounter: _hideCounter,
                       decoration: const InputDecoration(
                         labelText: 'Correo institucional *',
                       ),
@@ -687,6 +680,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         if (value == null || value.trim().isEmpty) {
                           return 'Ingresa el correo';
                         }
+                        final emailError = FormValidators.email(value);
+                        if (emailError != null) return emailError;
                         if (!ApiService.isValidGmailEmail(value)) {
                           return 'Usa un Gmail válido';
                         }
@@ -701,17 +696,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         decoration: const InputDecoration(
                           labelText: 'Contraseña inicial *',
                           helperText:
-                              'El empleado usará esta contraseña para iniciar sesión.',
+                              'Usa al menos 8 caracteres e incluye letras y números.',
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Ingresa una contraseña';
-                          }
-                          if (value.length < 6) {
-                            return 'Usa al menos 6 caracteres';
-                          }
-                          return null;
-                        },
+                        validator: FormValidators.password,
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -763,22 +750,14 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'\d*\.?\d')),
-                      ],
+                      inputFormatters: [FormValidators.decimalInputFormatter],
                       decoration: const InputDecoration(
                         labelText: 'Salario base *',
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Ingresa el salario';
-                        }
-                        final parsed = double.tryParse(value);
-                        if (parsed == null || parsed <= 0) {
-                          return 'Salario inválido';
-                        }
-                        return null;
-                      },
+                      validator: (value) => FormValidators.positiveNumber(
+                        value,
+                        label: 'El salario',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -870,7 +849,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       userId: employee['id'].toString(),
                       nombre: nombreController.text,
                       cargo: cargoValue.join(', '),
-                      salarioBase: double.parse(salarioController.text),
+                      salarioBase: double.parse(
+                        salarioController.text.replaceAll(',', '.'),
+                      ),
                       tipoContrato: selectedContrato,
                       fechaIngreso: selectedDate,
                     );
@@ -896,7 +877,9 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       userId: userId,
                       nombre: nombreController.text,
                       cargo: cargoValue.join(', '),
-                      salarioBase: double.parse(salarioController.text),
+                      salarioBase: double.parse(
+                        salarioController.text.replaceAll(',', '.'),
+                      ),
                       tipoContrato: selectedContrato,
                       fechaIngreso: selectedDate,
                     );
@@ -936,6 +919,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     passwordController.dispose();
     salarioController.dispose();
   }
+
+  Widget? _hideCounter(
+    BuildContext context, {
+    required int currentLength,
+    required bool isFocused,
+    required int? maxLength,
+  }) => null;
 
   LinearGradient _avatarGradient(String name) {
     final colors = <List<Color>>[

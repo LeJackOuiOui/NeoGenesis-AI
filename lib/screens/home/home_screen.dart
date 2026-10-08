@@ -7,6 +7,7 @@ import 'widgets/custom_app_bar.dart';
 import 'widgets/custom_drawer.dart';
 import 'widgets/view_inicio.dart';
 import 'widgets/view_candidatos.dart';
+import 'widgets/view_vacantes.dart';
 import 'widgets/view_logs.dart'; // <--- 1. Importación de la nueva vista
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
@@ -71,6 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return const ViewCandidatos();
       case 4:
+        return const ViewVacantes();
+      case 5:
         // 2. Renderiza ViewLogs solo si el usuario tiene rol de administrador
         return _isAdmin ? const ViewLogs() : const ViewInicio();
       case 0:
