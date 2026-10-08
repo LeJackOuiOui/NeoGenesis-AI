@@ -7,12 +7,23 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:neogenesis_ai/data/services/api_service.dart';
 import 'package:neogenesis_ai/main.dart';
 import 'package:neogenesis_ai/screens/home/home_screen.dart';
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    await Supabase.initialize(
+      url: 'https://example.supabase.co',
+      publishableKey: 'test-publishable-key',
+    );
+  });
+
   testWidgets('La aplicación renderiza la pantalla principal', (
     WidgetTester tester,
   ) async {
@@ -22,27 +33,33 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
   });
 
-  test('El payload de empleado evita columnas no existentes en esquemas antiguos', () {
-    final payload = ApiService.buildEmployeeUpdatePayload(
-      nombre: 'Ana López',
-      cargo: 'Analista',
-      salarioBase: 2200,
-      tipoContrato: 'Tiempo Completo',
-      fechaIngreso: DateTime(2024, 4, 15),
-      includeSalaryFields: false,
-    );
+  test(
+    'El payload de empleado evita columnas no existentes en esquemas antiguos',
+    () {
+      final payload = ApiService.buildEmployeeUpdatePayload(
+        nombre: 'Ana López',
+        cargo: 'Analista',
+        salarioBase: 2200,
+        tipoContrato: 'Tiempo Completo',
+        fechaIngreso: DateTime(2024, 4, 15),
+        includeSalaryFields: false,
+      );
 
-    expect(payload['nombre'], 'Ana López');
-    expect(payload['cargo'], 'Analista');
-    expect(payload['tipo_contrato'], 'Tiempo Completo');
-    expect(payload.containsKey('salario_base'), isFalse);
-  });
+      expect(payload['nombre'], 'Ana López');
+      expect(payload['cargo'], 'Analista');
+      expect(payload['tipo_contrato'], 'Tiempo Completo');
+      expect(payload.containsKey('salario_base'), isFalse);
+    },
+  );
 
-  test('La validación de correo acepta solo Gmail y rechaza otros dominios', () {
-    expect(ApiService.isValidGmailEmail('usuario@gmail.com'), isTrue);
-    expect(ApiService.isValidGmailEmail('usuario@googlemail.com'), isTrue);
-    expect(ApiService.isValidGmailEmail('usuario@outlook.com'), isFalse);
-    expect(ApiService.isValidGmailEmail('usuario@empresa.com'), isFalse);
-    expect(ApiService.isValidGmailEmail(''), isFalse);
-  });
+  test(
+    'La validación de correo acepta solo Gmail y rechaza otros dominios',
+    () {
+      expect(ApiService.isValidGmailEmail('usuario@gmail.com'), isTrue);
+      expect(ApiService.isValidGmailEmail('usuario@googlemail.com'), isTrue);
+      expect(ApiService.isValidGmailEmail('usuario@outlook.com'), isFalse);
+      expect(ApiService.isValidGmailEmail('usuario@empresa.com'), isFalse);
+      expect(ApiService.isValidGmailEmail(''), isFalse);
+    },
+  );
 }

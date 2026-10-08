@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/validators.dart';
 import '../../data/services/api_service.dart';
 import '../../../main.dart';
 
@@ -114,7 +114,9 @@ class _RegisterModalState extends State<RegisterModal> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('La cuenta se creó, pero no se pudo guardar el perfil: $error'),
+          content: Text(
+            'La cuenta se creó, pero no se pudo guardar el perfil: $error',
+          ),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -175,15 +177,11 @@ class _RegisterModalState extends State<RegisterModal> {
                 TextFormField(
                   controller: _nameController,
                   style: const TextStyle(color: Colors.white),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]')),
-                  ],
+                  inputFormatters: [FormValidators.nameInputFormatter],
+                  maxLength: 100,
+                  buildCounter: _hideCounter,
                   decoration: _inputDecoration('Tu nombre completo'),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Ingresa tu nombre';
-                    if (RegExp(r'\d').hasMatch(value)) return 'El nombre no puede contener números';
-                    return null;
-                  },
+                  validator: FormValidators.personName,
                 ),
                 const SizedBox(height: 16),
 
@@ -202,7 +200,10 @@ class _RegisterModalState extends State<RegisterModal> {
                   style: const TextStyle(color: Colors.white),
                   decoration: _inputDecoration('Selecciona tu cargo'),
                   items: _cargos
-                      .map((cargo) => DropdownMenuItem(value: cargo, child: Text(cargo)))
+                      .map(
+                        (cargo) =>
+                            DropdownMenuItem(value: cargo, child: Text(cargo)),
+                      )
                       .toList(),
                   onChanged: (value) {
                     if (value != null) setState(() => _selectedCargo = value);
@@ -225,7 +226,10 @@ class _RegisterModalState extends State<RegisterModal> {
                   style: const TextStyle(color: Colors.white),
                   decoration: _inputDecoration('Selecciona tu rol'),
                   items: _roles
-                      .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                      .map(
+                        (role) =>
+                            DropdownMenuItem(value: role, child: Text(role)),
+                      )
                       .toList(),
                   onChanged: (value) {
                     if (value != null) setState(() => _selectedRole = value);
@@ -246,9 +250,9 @@ class _RegisterModalState extends State<RegisterModal> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.deny(RegExp(r'\s')),
-                  ],
+                  inputFormatters: [FormValidators.emailInputFormatter],
+                  maxLength: 254,
+                  buildCounter: _hideCounter,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'ejemplo@correo.com',
@@ -266,10 +270,9 @@ class _RegisterModalState extends State<RegisterModal> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Ingresa tu correo';
-                    }
-                    final email = value.trim().toLowerCase();
+                    final formatError = FormValidators.email(value);
+                    if (formatError != null) return formatError;
+                    final email = (value ?? '').trim().toLowerCase();
                     if (!ApiService.isValidGmailEmail(email)) {
                       return 'Usa un correo Gmail válido';
                     }
@@ -290,19 +293,12 @@ class _RegisterModalState extends State<RegisterModal> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
-                  ],
+                  inputFormatters: [FormValidators.phoneInputFormatter],
+                  maxLength: 20,
+                  buildCounter: _hideCounter,
                   style: const TextStyle(color: Colors.white),
                   decoration: _inputDecoration('Tu número de teléfono'),
-                  validator: (value) {
-                    final phone = value?.trim() ?? '';
-                    if (phone.isEmpty) return 'Ingresa tu teléfono';
-                    if (phone.replaceAll(RegExp(r'\D'), '').length < 7) {
-                      return 'Ingresa un teléfono válido';
-                    }
-                    return null;
-                  },
+                  validator: FormValidators.phone,
                 ),
                 const SizedBox(height: 16),
 
@@ -320,34 +316,31 @@ class _RegisterModalState extends State<RegisterModal> {
                   obscureText: _obscurePassword,
                   onChanged: (_) => setState(() {}),
                   style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration(
-                    'Contraseña (mínimo 6 caracteres)',
-                  ).copyWith(
-                    prefixIcon: const Icon(
-                      Icons.lock_outline,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
-                    suffixIcon: IconButton(
-                      tooltip: _obscurePassword
-                          ? 'Mostrar contraseña'
-                          : 'Ocultar contraseña',
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: Colors.grey,
+                  decoration:
+                      _inputDecoration(
+                        'Contraseña (mínimo 8 caracteres, letras y números)',
+                      ).copyWith(
+                        prefixIcon: const Icon(
+                          Icons.lock_outline,
+                          color: Colors.grey,
+                          size: 20,
+                        ),
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword
+                              ? 'Mostrar contraseña'
+                              : 'Ocultar contraseña',
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                        ),
                       ),
-                      onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword,
-                      ),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Ingresa una contraseña';
-                    if (value.length < 6) return 'Usa al menos 6 caracteres';
-                    return null;
-                  },
+                  validator: FormValidators.password,
                 ),
                 const SizedBox(height: 16),
 
@@ -382,13 +375,15 @@ class _RegisterModalState extends State<RegisterModal> {
                         color: Colors.grey,
                       ),
                       onPressed: () => setState(
-                        () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                        () =>
+                            _obscureConfirmPassword = !_obscureConfirmPassword,
                       ),
                     ),
                   ),
-                  validator: (value) => value != _passwordController.text
-                      ? 'Las contraseñas no coinciden'
-                      : null,
+                  validator: (value) => FormValidators.confirmedPassword(
+                    value,
+                    _passwordController.text,
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -443,4 +438,11 @@ class _RegisterModalState extends State<RegisterModal> {
       ),
     );
   }
+
+  Widget? _hideCounter(
+    BuildContext context, {
+    required int currentLength,
+    required bool isFocused,
+    required int? maxLength,
+  }) => null;
 }

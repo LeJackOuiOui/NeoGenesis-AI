@@ -49,6 +49,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   const SizedBox(width: 20),
                   _buildNavItem('Candidatos', 3),
                   const SizedBox(width: 20),
+                  _buildNavItem('Vacantes', 4),
+                  const SizedBox(width: 20),
                   _buildNavItem('Perfil', 2),
                   const SizedBox(width: 28),
 
@@ -150,6 +152,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             onTabSelected(2);
           case 'candidatos':
             onTabSelected(3);
+          case 'vacantes':
+            onTabSelected(4);
           case 'logout':
             onLogoutPressed();
           case 'registro':
@@ -172,6 +176,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             PopupMenuItem(
               value: 'candidatos',
               child: Text('Candidatos', style: TextStyle(color: Colors.white)),
+            ),
+            PopupMenuItem(
+              value: 'vacantes',
+              child: Text('Vacantes', style: TextStyle(color: Colors.white)),
             ),
             PopupMenuItem(
               value: 'perfil',
