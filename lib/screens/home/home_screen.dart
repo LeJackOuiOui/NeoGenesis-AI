@@ -299,7 +299,8 @@ class _HomeScreenState extends State<HomeScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isSidebarExpanded =
-              _sidebarExpanded ?? constraints.maxWidth >= 900;
+              _sidebarExpanded ?? constraints.maxWidth < 900;
+          final canExpandOnHover = constraints.maxWidth >= 900;
 
           return Row(
             children: [
@@ -307,6 +308,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 selectedIndex: _selectedIndex,
                 isExpanded: isSidebarExpanded,
                 onNavigationSelected: _onTabSelected,
+                onHoverChanged: canExpandOnHover
+                    ? (isHovered) {
+                        setState(() {
+                          _sidebarExpanded = isHovered;
+                        });
+                      }
+                    : (_) {},
                 onToggle: () {
                   setState(() {
                     _sidebarExpanded = !isSidebarExpanded;

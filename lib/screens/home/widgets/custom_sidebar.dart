@@ -5,6 +5,7 @@ class CustomSidebar extends StatelessWidget {
   final int selectedIndex;
   final bool isExpanded;
   final ValueChanged<int> onNavigationSelected;
+  final ValueChanged<bool> onHoverChanged;
   final VoidCallback onToggle;
   final VoidCallback onLoginPressed;
   final VoidCallback onRegisterPressed;
@@ -15,6 +16,7 @@ class CustomSidebar extends StatelessWidget {
     required this.selectedIndex,
     required this.isExpanded,
     required this.onNavigationSelected,
+    required this.onHoverChanged,
     required this.onToggle,
     required this.onLoginPressed,
     required this.onRegisterPressed,
@@ -33,153 +35,175 @@ class CustomSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = isExpanded ? 220.0 : 60.0;
 
-    return SizedBox(
-      width: width,
-      height: double.infinity,
-      child: ColoredBox(
-        color: AppTheme.textDark,
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 68,
-                        child: isExpanded
-                            ? Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                child: Row(
+    return MouseRegion(
+      onEnter: (_) => onHoverChanged(true),
+      onExit: (_) => onHoverChanged(false),
+      child: SizedBox(
+        width: width,
+        height: double.infinity,
+        child: ColoredBox(
+          color: AppTheme.textDark,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 68,
+                          child: isExpanded
+                              ? Stack(
+                                  alignment: Alignment.center,
                                   children: [
-                                    _buildLogo(),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: RichText(
-                                        maxLines: 1,
-                                        text: const TextSpan(
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          children: [
-                                            TextSpan(text: 'NEOGENESIS '),
-                                            TextSpan(
-                                              text: 'IA',
-                                              style: TextStyle(
-                                                color: AppTheme.primaryGreen,
-                                              ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _buildLogo(),
+                                        const SizedBox(width: 8),
+                                        RichText(
+                                          maxLines: 1,
+                                          text: TextSpan(
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          ],
+                                            children: [
+                                              TextSpan(text: 'NEOGENESIS '),
+                                              TextSpan(
+                                                text: 'IA',
+                                                style: TextStyle(
+                                                  color: AppTheme.primaryGreen,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Positioned(
+                                      right: 4,
+                                      child: IconButton(
+                                        tooltip: 'Contraer menú',
+                                        onPressed: onToggle,
+                                        visualDensity: VisualDensity.compact,
+                                        icon: const Icon(
+                                          Icons.chevron_left_rounded,
+                                          color: Colors.white70,
                                         ),
                                       ),
                                     ),
-                                    IconButton(
-                                      tooltip: 'Contraer menú',
-                                      onPressed: onToggle,
-                                      visualDensity: VisualDensity.compact,
-                                      icon: const Icon(
-                                        Icons.chevron_left_rounded,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
                                   ],
-                                ),
-                              )
-                            : Center(
-                                child: Tooltip(
-                                  message: 'Expandir menú',
-                                  child: InkWell(
-                                    onTap: onToggle,
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: _buildLogo(),
+                                )
+                              : Center(
+                                  child: Tooltip(
+                                    message: 'Expandir menú',
+                                    child: InkWell(
+                                      onTap: onToggle,
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: _buildLogo(),
+                                    ),
                                   ),
                                 ),
-                              ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Divider(
-                          color: Colors.white.withValues(alpha: 0.12),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      for (var index = 0; index < _items.length; index++)
-                        _buildNavigationItem(context, _items[index], index),
-                      const Spacer(),
-                      if (isExpanded) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Divider(
                             color: Colors.white.withValues(alpha: 0.12),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: onLoginPressed,
-                              icon: const Icon(Icons.login_rounded, size: 18),
-                              label: const Text('Iniciar sesión'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                        const SizedBox(height: 10),
+                        for (var index = 0; index < _items.length; index++)
+                          _buildNavigationItem(context, _items[index], index),
+                        const Spacer(),
+                        if (isExpanded) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Divider(
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: onLoginPressed,
+                                icon: const Icon(Icons.login_rounded, size: 18),
+                                label: const Text('Iniciar sesión'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: onRegisterPressed,
-                              icon: const Icon(
-                                Icons.person_add_alt_1_rounded,
-                                size: 18,
-                              ),
-                              label: const Text('Registrarse'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryGreen,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: onRegisterPressed,
+                                icon: const Icon(
+                                  Icons.person_add_alt_1_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Registrarse'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryGreen,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ] else ...[
-                        IconButton(
-                          tooltip: 'Iniciar sesión',
-                          onPressed: onLoginPressed,
-                          icon: const Icon(
-                            Icons.login_rounded,
-                            color: Colors.white70,
+                        ] else ...[
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: Center(
+                              child: IconButton(
+                                tooltip: 'Iniciar sesión',
+                                onPressed: onLoginPressed,
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  Icons.login_rounded,
+                                  color: Colors.white70,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          tooltip: 'Registrarse',
-                          onPressed: onRegisterPressed,
-                          icon: const Icon(
-                            Icons.person_add_alt_1_rounded,
-                            color: AppTheme.primaryGreen,
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: Center(
+                              child: IconButton(
+                                tooltip: 'Registrarse',
+                                onPressed: onRegisterPressed,
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  Icons.person_add_alt_1_rounded,
+                                  color: AppTheme.primaryGreen,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
+                        _buildLogoutButton(context),
+                        const SizedBox(height: 12),
                       ],
-                      _buildLogoutButton(context),
-                      const SizedBox(height: 12),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -297,7 +321,7 @@ class CustomSidebar extends StatelessWidget {
                 const Icon(
                   Icons.logout_rounded,
                   color: Color(0xFFE57373),
-                  size: 20,
+                  size: 18,
                 ),
                 if (isExpanded) ...[
                   const SizedBox(width: 12),
