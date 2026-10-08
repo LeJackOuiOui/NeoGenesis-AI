@@ -49,6 +49,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   const SizedBox(width: 20),
                   _buildNavItem('Registros', 1),
                   const SizedBox(width: 20),
+                  _buildNavItem('Candidatos', 3),
+                  const SizedBox(width: 20),
                   _buildNavItem('Perfil', 2),
 
                   // Se renderiza la opción "Logs" SOLO si el usuario es Administrador
@@ -142,8 +144,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             onTabSelected(1);
           case 'perfil':
             onTabSelected(2);
-          case 'logs':
+          case 'candidatos':
             onTabSelected(3);
+          case 'logs':
+            onTabSelected(4);
           case 'logout':
             onLogoutPressed();
           case 'registro':
@@ -162,6 +166,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             const PopupMenuItem(
               value: 'registros',
               child: Text('Registros', style: TextStyle(color: Colors.white)),
+            ),
+            const PopupMenuItem(
+              value: 'candidatos',
+              child: Text('Candidatos', style: TextStyle(color: Colors.white)),
             ),
             const PopupMenuItem(
               value: 'perfil',
