@@ -4,6 +4,7 @@ import '../../config/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../data/services/api_service.dart';
 import '../../main.dart';
+import '../../data/services/audit_service.dart';
 
 class LoginModal extends StatefulWidget {
   const LoginModal({super.key});
@@ -18,6 +19,7 @@ class _LoginModalState extends State<LoginModal> {
   final _formKey = GlobalKey<FormState>();
 
   late final ApiService _apiService;
+  late final AuditService _auditService;
 
   bool _rememberMe = false;
   bool _obscurePassword = true;
@@ -27,6 +29,7 @@ class _LoginModalState extends State<LoginModal> {
   void initState() {
     super.initState();
     _apiService = ApiService(supabase);
+    _auditService = AuditService(supabase);
   }
 
   @override
@@ -50,21 +53,38 @@ class _LoginModalState extends State<LoginModal> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Intentar iniciar sesión usando el método login de ApiService
+      // 1. Intentar iniciar sesión
       await _apiService.login(email: email, password: password);
 
-      // 2. Obtener el perfil del usuario logueado mediante ApiService
+      // 2. Obtener el perfil del usuario logueado
       final userProfile = await _apiService.getCurrentUserProfile();
+      final currentUserId = supabase.auth.currentUser?.id;
 
       // 3. Validar si el usuario está inactivo en el sistema
       if (userProfile?.estado == 'Inactivo') {
         await _apiService.signOut();
+
+        // Registrar intento bloqueado por usuario inactivo
+        await _auditService.logAuthAttempt(
+          email: email,
+          exitoso: false,
+          usuarioId: currentUserId,
+          detalleError: 'Usuario inactivo en la plataforma',
+        );
+
         _showMessage(
           'Tu usuario está inactivo. Contacta al administrador.',
           isError: true,
         );
         return;
       }
+
+      // --- HU-10 & Trazabilidad Ciega: Registrar Login Exitoso ---
+      await _auditService.logAuthAttempt(
+        email: email,
+        exitoso: true,
+        usuarioId: currentUserId,
+      );
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -75,8 +95,22 @@ class _LoginModalState extends State<LoginModal> {
         ),
       );
     } on AuthException catch (error) {
+      // --- HU-10 & Trazabilidad Ciega: Registrar Intento Fallido ---
+      await _auditService.logAuthAttempt(
+        email: email,
+        exitoso: false,
+        detalleError: error.message,
+      );
+
       _showMessage(error.message, isError: true);
     } catch (error) {
+      // --- HU-10 & Trazabilidad Ciega: Registrar Error Inesperado ---
+      await _auditService.logAuthAttempt(
+        email: email,
+        exitoso: false,
+        detalleError: error.toString(),
+      );
+
       _showMessage(
         'No se pudo iniciar sesión. Verifica tus credenciales.',
         isError: true,
@@ -112,7 +146,7 @@ class _LoginModalState extends State<LoginModal> {
         constraints: const BoxConstraints(maxWidth: 850, maxHeight: 520),
         child: Row(
           children: [
-            // Panel Izquierdo Verde (Bienvenida y Logo)
+            // Panel Izquierdo
             Expanded(
               child: Container(
                 color: AppTheme.lightGreenBg,
@@ -167,7 +201,7 @@ class _LoginModalState extends State<LoginModal> {
               ),
             ),
 
-            // Panel Derecho (Formulario)
+            // Panel Derecho Formulario
             Expanded(
               child: Container(
                 color: Colors.white,
@@ -193,7 +227,6 @@ class _LoginModalState extends State<LoginModal> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Campo Correo
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -214,11 +247,20 @@ class _LoginModalState extends State<LoginModal> {
                             vertical: 12,
                           ),
                         ),
-                        validator: FormValidators.email,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Ingresa tu correo';
+                          }
+                          if (!RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          ).hasMatch(value.trim())) {
+                            return 'Ingresa un correo válido';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
 
-                      // Campo Contraseña
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
@@ -250,7 +292,6 @@ class _LoginModalState extends State<LoginModal> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Recordarme & Olvidaste contraseña
                       Row(
                         children: [
                           Checkbox(
@@ -278,7 +319,6 @@ class _LoginModalState extends State<LoginModal> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Botón Iniciar Sesión
                       SizedBox(
                         width: double.infinity,
                         height: 45,

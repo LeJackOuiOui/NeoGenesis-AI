@@ -8,6 +8,7 @@ import 'widgets/custom_drawer.dart';
 import 'widgets/view_inicio.dart';
 import 'widgets/view_candidatos.dart';
 import 'widgets/view_vacantes.dart';
+import 'widgets/view_logs.dart'; // <--- 1. Importación de la nueva vista
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
 
@@ -25,15 +26,30 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   late final StreamSubscription<AuthState> _authSubscription;
 
+  bool get _isAdmin {
+    final role =
+        (supabase.auth.currentUser?.userMetadata?['role'] as String?)
+            ?.toLowerCase() ??
+        '';
+    return role == 'administrador' || role == 'admin';
+  }
+
   @override
   void initState() {
     super.initState();
     // Escuchar cambios de estado en la autenticación (Login / Logout)
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      final event = data.event;
+
       if (mounted) {
         setState(() {
-          // Si cierra sesión y estaba en una vista no permitida, vuelve a Inicio
-          if (data.session == null && _selectedIndex != 0) {
+          // Si cierra sesión o deja de ser admin estando en una vista restringida, vuelve a Inicio
+          if (event == AuthChangeEvent.signedIn || session != null) {
+            if (_selectedIndex == 0) {
+              _selectedIndex = 0;
+            }
+          } else if (session == null && _selectedIndex != 0) {
             _selectedIndex = 0;
           }
         });
@@ -57,6 +73,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return const ViewCandidatos();
       case 4:
         return const ViewVacantes();
+      case 5:
+        // 2. Renderiza ViewLogs solo si el usuario tiene rol de administrador
+        return _isAdmin ? const ViewLogs() : const ViewInicio();
       case 0:
       default:
         return const ViewInicio();
@@ -200,10 +219,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 subtitle: 'Portal exclusivo para administradores',
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Acceso Administrador seleccionado'),
-                    ),
+                  showDialog(
+                    context: screenContext,
+                    builder: (context) => const LoginModal(),
                   );
                 },
               ),
@@ -277,6 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: CustomAppBar(
         selectedIndex: _selectedIndex,
         isLoggedIn: isLoggedIn,
+        isAdmin: _isAdmin, // 3. Se pasa la validación de rol
         onTabSelected: _onTabSelected,
         onLoginPressed: _showLoginOptionsModal,
         onRegisterPressed: _showRegisterOptionsModal,
