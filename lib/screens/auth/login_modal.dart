@@ -81,7 +81,7 @@ class _LoginModalState extends State<LoginModal> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Image.asset(
-                      'assets/images/logo_neogenesis.png',
+                      'assets/images/logo_Neogenesis.png',
                       height: 120,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) => const Icon(

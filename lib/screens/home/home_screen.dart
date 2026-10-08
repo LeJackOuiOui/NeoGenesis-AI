@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/theme/app_theme.dart';
-import 'widgets/custom_app_bar.dart';
-import 'widgets/custom_drawer.dart';
+import 'widgets/custom_sidebar.dart';
 import 'widgets/view_inicio.dart';
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
@@ -19,13 +18,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool? _sidebarExpanded;
 
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
       case 1:
         return const ViewRegistros();
-      case 2:
+      case 4:
         return const ViewPerfil();
+      case 2:
+        return _buildComingSoon('Candidatos', '👥');
+      case 3:
+        return _buildComingSoon('Vacantes', '💼');
       case 0:
       default:
         return const ViewInicio();
@@ -36,6 +40,45 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  Widget _buildComingSoon(String section, String emoji) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 38)),
+            const SizedBox(height: 12),
+            Text(
+              section,
+              style: const TextStyle(
+                color: AppTheme.textDark,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Esta sección estará disponible próximamente.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onLogoutPressed() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'La opción de cerrar sesión estará disponible próximamente.',
+        ),
+      ),
+    );
   }
 
   // --- MODAL CENTRADO DE REGISTRO ---
@@ -253,46 +296,67 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
-        selectedIndex: _selectedIndex,
-        onTabSelected: _onTabSelected,
-        onLoginPressed: _showLoginOptionsModal,
-        onRegisterPressed: _showRegisterOptionsModal,
-      ),
-      drawer: const CustomDrawer(),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFDCEFE4), Color(0xFFEAF4ED)],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSidebarExpanded =
+              _sidebarExpanded ?? constraints.maxWidth >= 900;
+
+          return Row(
+            children: [
+              CustomSidebar(
+                selectedIndex: _selectedIndex,
+                isExpanded: isSidebarExpanded,
+                onNavigationSelected: _onTabSelected,
+                onToggle: () {
+                  setState(() {
+                    _sidebarExpanded = !isSidebarExpanded;
+                  });
+                },
+                onLoginPressed: _showLoginOptionsModal,
+                onRegisterPressed: _showRegisterOptionsModal,
+                onLogoutPressed: _onLogoutPressed,
               ),
-            ),
-          ),
-          Positioned(
-            top: -145,
-            right: -115,
-            child: Container(
-              width: 430,
-              height: 430,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryGreen.withValues(alpha: 0.16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryGreen.withValues(alpha: 0.22),
-                    blurRadius: 110,
-                    spreadRadius: 55,
-                  ),
-                ],
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFDCEFE4), Color(0xFFEAF4ED)],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -145,
+                      right: -115,
+                      child: Container(
+                        width: 430,
+                        height: 430,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.primaryGreen.withValues(alpha: 0.16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryGreen.withValues(
+                                alpha: 0.22,
+                              ),
+                              blurRadius: 110,
+                              spreadRadius: 55,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _buildCurrentView(),
+                  ],
+                ),
               ),
-            ),
-          ),
-          _buildCurrentView(),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
