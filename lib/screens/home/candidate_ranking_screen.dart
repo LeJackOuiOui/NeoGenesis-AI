@@ -6,6 +6,7 @@ import '../../models/job.dart';
 import '../../services/affinity_score_service.dart';
 import '../../services/embedding_service.dart';
 import '../../services/mock_embedding_service.dart';
+import 'candidate_selection_screen.dart';
 
 class CandidateRankingScreen extends StatefulWidget {
   final List<Candidate> candidates;
@@ -120,6 +121,28 @@ class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
             ),
 
             const SizedBox(height: 24),
+
+            if (_results.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CandidateSelectionScreen(
+                            rankedCandidates: _results.take(2).toList(),
+                            availableCandidates: _candidates,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Revisar selección'),
+                  ),
+                ),
+              ),
 
             Expanded(
               child: _results.isEmpty
