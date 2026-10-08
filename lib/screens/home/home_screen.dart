@@ -2,9 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
-import '../../main.dart';
-import 'widgets/custom_app_bar.dart';
-import 'widgets/custom_drawer.dart';
+import 'widgets/custom_sidebar.dart';
 import 'widgets/view_inicio.dart';
 import 'widgets/view_candidatos.dart';
 import 'widgets/view_vacantes.dart';
@@ -24,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool? _sidebarExpanded;
   late final StreamSubscription<AuthState> _authSubscription;
 
   bool get _isAdmin {
@@ -88,6 +87,46 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Widget _buildComingSoon(String section, String emoji) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 38)),
+            const SizedBox(height: 12),
+            Text(
+              section,
+              style: const TextStyle(
+                color: AppTheme.textDark,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Esta sección estará disponible próximamente.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onLogoutPressed() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'La opción de cerrar sesión estará disponible próximamente.',
+        ),
+      ),
+    );
+  }
+
+  // --- MODAL CENTRADO DE REGISTRO ---
   void _showRegisterOptionsModal() {
     final screenContext = context;
     showDialog(
@@ -292,51 +331,75 @@ class _HomeScreenState extends State<HomeScreen> {
     final isLoggedIn = supabase.auth.currentSession != null;
 
     return Scaffold(
-      appBar: CustomAppBar(
-        selectedIndex: _selectedIndex,
-        isLoggedIn: isLoggedIn,
-        isAdmin: _isAdmin, // 3. Se pasa la validación de rol
-        onTabSelected: _onTabSelected,
-        onLoginPressed: _showLoginOptionsModal,
-        onRegisterPressed: _showRegisterOptionsModal,
-        onLogoutPressed: () async {
-          await supabase.auth.signOut();
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSidebarExpanded =
+              _sidebarExpanded ?? constraints.maxWidth < 900;
+          final canExpandOnHover = constraints.maxWidth >= 900;
+
+          return Row(
+            children: [
+              CustomSidebar(
+                selectedIndex: _selectedIndex,
+                isExpanded: isSidebarExpanded,
+                onNavigationSelected: _onTabSelected,
+                onHoverChanged: canExpandOnHover
+                    ? (isHovered) {
+                        setState(() {
+                          _sidebarExpanded = isHovered;
+                        });
+                      }
+                    : (_) {},
+                onToggle: () {
+                  setState(() {
+                    _sidebarExpanded = !isSidebarExpanded;
+                  });
+                },
+                onLoginPressed: _showLoginOptionsModal,
+                onRegisterPressed: _showRegisterOptionsModal,
+                onLogoutPressed: _onLogoutPressed,
+              ),
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFDCEFE4), Color(0xFFEAF4ED)],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -145,
+                      right: -115,
+                      child: Container(
+                        width: 430,
+                        height: 430,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.primaryGreen.withValues(alpha: 0.16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryGreen.withValues(
+                                alpha: 0.22,
+                              ),
+                              blurRadius: 110,
+                              spreadRadius: 55,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _buildCurrentView(),
+                  ],
+                ),
+              ),
+            ],
+          );
         },
-      ),
-      drawer: const CustomDrawer(),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFDCEFE4), Color(0xFFEAF4ED)],
-              ),
-            ),
-          ),
-          Positioned(
-            top: -145,
-            right: -115,
-            child: Container(
-              width: 430,
-              height: 430,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryGreen.withValues(alpha: 0.16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryGreen.withValues(alpha: 0.22),
-                    blurRadius: 110,
-                    spreadRadius: 55,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          _buildCurrentView(),
-        ],
       ),
     );
   }

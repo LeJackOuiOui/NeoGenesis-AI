@@ -96,7 +96,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return Row(
       children: [
         Image.asset(
-          'assets/images/logo_neogenesis.png',
+          'assets/images/logo_Neogenesis.png',
           height: 36,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) =>

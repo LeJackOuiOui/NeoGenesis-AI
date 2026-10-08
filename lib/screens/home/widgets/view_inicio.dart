@@ -28,7 +28,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
           'Potencia el desarrollo de tu equipo con herramientas inteligentes.',
     },
     {
-      'image': '../../../assets/images/logo_Neogenesis.png',
+      'image': 'assets/images/logo_Neogenesis.png',
       'title': 'Nómina Autónoma y Precisa',
       'subtitle': 'Automatiza procesos complejos y reduce tiempos de cálculo.',
     },
@@ -287,126 +287,141 @@ class _ViewInicioState extends State<ViewInicio> {
                   colors: [Color(0xFFDCEFE4), Color(0xFFEAF4ED)],
                 ),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 40.0,
-              ),
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 20,
-                runSpacing: 20,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 500),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 560;
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 16 : 24,
+                      vertical: compact ? 28 : 40,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 20,
+                      runSpacing: 20,
                       children: [
-                        RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
-                              fontSize: 38,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textDark,
-                            ),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: compact ? constraints.maxWidth : 500,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              TextSpan(text: 'NeoGenesis '),
-                              TextSpan(
-                                text: 'IA',
-                                style: TextStyle(color: AppTheme.primaryGreen),
+                              RichText(
+                                softWrap: true,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontSize: compact ? 28 : 38,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textDark,
+                                  ),
+                                  children: [
+                                    const TextSpan(text: 'NeoGenesis '),
+                                    const TextSpan(
+                                      text: 'IA',
+                                      style: TextStyle(
+                                        color: AppTheme.primaryGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'El futuro de la gestión humana, más inteligente y eficiente.',
+                                style: TextStyle(
+                                  fontSize: compact ? 18 : 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Automatiza, optimiza y transforma la forma en que las organizaciones gestionan su talento humano con el poder de la Inteligencia Artificial.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                  height: 1.4,
+                                ),
+                              ),
+                              SizedBox(height: compact ? 18 : 24),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: _comenzarGratis,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryGreen,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Comenzar gratis',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Icon(Icons.arrow_forward, size: 18),
+                                      ],
+                                    ),
+                                  ),
+                                  OutlinedButton(
+                                    onPressed: _scrollToSeccion,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.primaryGreen,
+                                      side: const BorderSide(
+                                        color: AppTheme.primaryGreen,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Conocer más',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'El futuro de la gestión humana, más inteligente y eficiente.',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Automatiza, optimiza y transforma la forma en que las organizaciones gestionan su talento humano con el poder de la Inteligencia Artificial.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            ElevatedButton(
-                              onPressed: _comenzarGratis,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryGreen,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Comenzar gratis',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward, size: 18),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-
-                            // BOTÓN CONOCER MÁS
-                            OutlinedButton(
-                              onPressed: _scrollToSeccion,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primaryGreen,
-                                side: const BorderSide(
+                        if (!compact)
+                          Image.asset(
+                            'assets/images/logo_Neogenesis.png',
+                            width: 240,
+                            height: 240,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  size: 180,
                                   color: AppTheme.primaryGreen,
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text(
-                                'Conocer más',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
                       ],
                     ),
-                  ),
-
-                  Image.asset(
-                    'assets/images/logo_neogenesis.png',
-                    width: 240,
-                    height: 240,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.auto_awesome,
-                      size: 180,
-                      color: AppTheme.primaryGreen,
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
 
@@ -417,7 +432,7 @@ class _ViewInicioState extends State<ViewInicio> {
             // ==========================================
             Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
+                horizontal: 16.0,
                 vertical: 10.0,
               ),
               child: Center(
