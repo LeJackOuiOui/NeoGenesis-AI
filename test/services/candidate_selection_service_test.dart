@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../lib/models/candidate.dart';
-import '../../lib/models/candidate_selection.dart';
-import '../../lib/services/candidate_selection_service.dart';
+import 'package:neogenesis_ai/data/models/candidate.dart';
+import 'package:neogenesis_ai/data/models/candidate_selection.dart';
+import 'package:neogenesis_ai/data/services/candidate_selection_service.dart';
 
 void main() {
   final candidate1 = Candidate(

@@ -254,7 +254,7 @@ class _ViewLogsState extends State<ViewLogs> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _logs.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final log = _logs[index];
                 final nivel = log['nivel'] ?? 'INFO';

@@ -467,8 +467,9 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
                 await _loadCandidates();
                 _showMessage('Perfil guardado correctamente.');
               } catch (error) {
-                if (mounted)
+                if (mounted) {
                   _showMessage('No se pudo guardar: $error', isError: true);
+                }
               }
             },
             child: const Text('Guardar perfil'),

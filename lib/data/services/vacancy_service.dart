@@ -12,15 +12,40 @@ class VacancyService {
   const VacancyService(this.client);
 
   Future<List<VacancyModel>> fetchVacancies() async {
-    final rows = await client
+    final currentUser = client.auth.currentUser;
+    final metadata = currentUser?.userMetadata;
+    final isRRHH =
+        metadata?['isRRHH'] == true ||
+        metadata?['role']?.toString().toLowerCase() == 'responsable rrhh';
+
+    var query = client
         .from('vacantes')
         .select(
-          'id, title, min_experience_years, required_skills, min_education_level, removed_candidate_ids',
-        )
-        .order('created_at', ascending: false);
+          'id, title, min_experience_years, required_skills, min_education_level, removed_candidate_ids, created_by',
+        );
+
+    // Si es una empresa, mostramos únicamente sus vacantes creadas
+    if (isRRHH && currentUser != null) {
+      query = query.eq('created_by', currentUser.id);
+    }
+
+    final rows = await query.order('created_at', ascending: false);
     return (rows as List)
         .map((row) => VacancyModel.fromMap(Map<String, dynamic>.from(row)))
         .toList();
+  }
+
+  Future<void> aplicarAVacante(String vacancyId) async {
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Debes iniciar sesión para postularte.');
+    }
+
+    await client.from('postulaciones').insert({
+      'vacante_id': vacancyId,
+      'usuario_id': currentUser.id,
+      'estado': 'enviada',
+    });
   }
 
   Future<VacancyModel> saveVacancy({
@@ -30,6 +55,7 @@ class VacancyService {
     required List<String> requiredSkills,
     required String minEducationLevel,
   }) async {
+    final currentUser = client.auth.currentUser;
     final vacancyId = id ?? _newVacancyId();
     final payload = {
       'id': vacancyId,
@@ -37,6 +63,7 @@ class VacancyService {
       'min_experience_years': minExperienceYears,
       'required_skills': requiredSkills,
       'min_education_level': minEducationLevel,
+      if (id == null && currentUser != null) 'created_by': currentUser.id,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     final row = id == null

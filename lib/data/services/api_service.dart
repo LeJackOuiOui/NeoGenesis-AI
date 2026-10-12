@@ -46,7 +46,7 @@ class ApiService {
       final row = await client
           .from('profiles')
           .select(
-            'id, nombre, email, cargo, role, estado, created_at, salario_base, tipo_contrato, fecha_ingreso, baja_logica',
+            'id, nombre, email, cargo, role, estado, created_at, salario_base, tipo_contrato, fecha_ingreso, baja_logica, company_nit, company_rut, company_address, company_verification_status',
           )
           .eq('id', currentUser.id)
           .maybeSingle();
@@ -134,7 +134,7 @@ class ApiService {
       final rows = await client
           .from('profiles')
           .select(
-            'id, nombre, email, cargo, role, estado, created_at, salario_base, tipo_contrato, fecha_ingreso, baja_logica',
+            'id, nombre, email, cargo, role, estado, created_at, salario_base, tipo_contrato, fecha_ingreso, baja_logica, company_nit, company_rut, company_address, company_verification_status',
           )
           .order('created_at', ascending: false);
       return (rows as List)

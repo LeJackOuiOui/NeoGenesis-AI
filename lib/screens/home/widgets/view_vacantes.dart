@@ -26,6 +26,13 @@ class _ViewVacantesState extends State<ViewVacantes> {
   bool _isEvaluating = false;
   int _resultTab = 0;
   String? _error;
+  bool get _isRRHH {
+    final metadata = supabase.auth.currentUser?.userMetadata;
+    final role = metadata?['role']?.toString().toLowerCase();
+    return metadata?['isRRHH'] == true ||
+        role == 'responsable rrhh' ||
+        role == 'responsable de recursos humanos';
+  }
 
   static const _educationOptions = <String, String>{
     'none': 'Sin mínimo',
@@ -260,8 +267,9 @@ class _ViewVacantesState extends State<ViewVacantes> {
         _evaluations = {};
       });
       await _load();
-      if (mounted)
+      if (mounted) {
         _showMessage('Vacante eliminada. Los candidatos siguen intactos.');
+      }
     } catch (error) {
       if (mounted) _showMessage('No se pudo eliminar la vacante: $error', true);
     }
@@ -317,8 +325,9 @@ class _ViewVacantesState extends State<ViewVacantes> {
         candidateId: candidate.id,
       );
       await _load(preferredVacancyId: vacancy.id);
-      if (mounted)
+      if (mounted) {
         _showMessage('Persona quitada de la vacante; su perfil se conserva.');
+      }
     } catch (error) {
       if (mounted) _showMessage('No se pudo quitar a la persona: $error', true);
     }
@@ -373,11 +382,13 @@ class _ViewVacantesState extends State<ViewVacantes> {
                         color: AppTheme.textDark,
                       ),
                     );
-                    final button = FilledButton.icon(
-                      onPressed: () => _showVacancyDialog(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Nueva vacante'),
-                    );
+                    final button = _isRRHH
+                        ? FilledButton.icon(
+                            onPressed: () => _showVacancyDialog(),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Nueva vacante'),
+                          )
+                        : const SizedBox.shrink();
                     if (constraints.maxWidth < 560) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,8 +405,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
                     return Row(
                       children: [
                         const Expanded(child: title),
-                        const SizedBox(width: 24),
-                        button,
+                        if (_isRRHH) ...[const SizedBox(width: 24), button],
                       ],
                     );
                   },
@@ -431,27 +441,60 @@ class _ViewVacantesState extends State<ViewVacantes> {
                   if (_selectedVacancy != null) ...[
                     const SizedBox(height: 20),
                     _criteriaCard(_selectedVacancy!),
-                    const SizedBox(height: 20),
-                    _buildResultsHeader(
-                      eligible.length,
-                      excluded.length,
-                      removed.length,
-                    ),
-                    const SizedBox(height: 12),
-                    if (_isEvaluating)
-                      const LinearProgressIndicator(
-                        color: AppTheme.primaryGreen,
+
+                    if (!_isRRHH) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              await _vacancyService.aplicarAVacante(
+                                _selectedVacancy!.id,
+                              );
+                              _showMessage(
+                                '¡Te has postulado a la vacante exitosamente!',
+                              );
+                            } catch (e) {
+                              _showMessage(
+                                'No se pudo completar la postulación (es posible que ya estés inscrito): $e',
+                                true,
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          icon: const Icon(Icons.send_outlined),
+                          label: const Text('Postularme a esta vacante'),
+                        ),
                       ),
-                    if (!_isEvaluating && displayed.isEmpty)
-                      _emptyResults(_resultTab),
-                    ...displayed.map(
-                      (candidate) => _candidateResultCard(
-                        candidate,
-                        _evaluations[candidate.id],
-                        excluded: _resultTab == 1,
-                        removed: _resultTab == 2,
+                    ] else ...[
+                      // Si es empresa, mantiene las herramientas de evaluación y filtrado de candidatos
+                      const SizedBox(height: 20),
+                      _buildResultsHeader(
+                        eligible.length,
+                        excluded.length,
+                        removed.length,
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      if (_isEvaluating)
+                        const LinearProgressIndicator(
+                          color: AppTheme.primaryGreen,
+                        ),
+                      if (!_isEvaluating && displayed.isEmpty)
+                        _emptyResults(_resultTab),
+                      ...displayed.map(
+                        (candidate) => _candidateResultCard(
+                          candidate,
+                          _evaluations[candidate.id],
+                          excluded: _resultTab == 1,
+                          removed: _resultTab == 2,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ],

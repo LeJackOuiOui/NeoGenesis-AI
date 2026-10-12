@@ -4,6 +4,9 @@ import '../../../config/theme/app_theme.dart';
 class CustomSidebar extends StatelessWidget {
   final int selectedIndex;
   final bool isExpanded;
+  final bool isLoggedIn;
+  final bool isAdmin;
+  final bool isRRHH;
   final ValueChanged<int> onNavigationSelected;
   final ValueChanged<bool> onHoverChanged;
   final VoidCallback onToggle;
@@ -15,6 +18,9 @@ class CustomSidebar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.isExpanded,
+    required this.isLoggedIn,
+    this.isAdmin = false,
+    this.isRRHH = false,
     required this.onNavigationSelected,
     required this.onHoverChanged,
     required this.onToggle,
@@ -25,7 +31,6 @@ class CustomSidebar extends StatelessWidget {
 
   static const _items = [
     _SidebarItem(label: 'Inicio', icon: Icons.home_outlined),
-    _SidebarItem(label: 'Registros', icon: Icons.assignment_outlined),
     _SidebarItem(label: 'Candidatos', icon: Icons.people_outline),
     _SidebarItem(label: 'Vacantes', icon: Icons.work_outline),
     _SidebarItem(label: 'Perfil', icon: Icons.person_outline),
@@ -115,92 +120,169 @@ class CustomSidebar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        for (var index = 0; index < _items.length; index++)
-                          _buildNavigationItem(context, _items[index], index),
-                        const Spacer(),
-                        if (isExpanded) ...[
+                        if (isLoggedIn && isRRHH)
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Divider(
-                              color: Colors.white.withValues(alpha: 0.12),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isExpanded ? 16 : 0,
+                              vertical: 4,
+                            ),
+                            child: Tooltip(
+                              message: 'Cuenta de empresa',
+                              child: isExpanded
+                                  ? Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryGreen.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Row(
+                                        children: [
+                                          Icon(
+                                            Icons.business_outlined,
+                                            color: AppTheme.primaryGreen,
+                                            size: 16,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Cuenta de empresa',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.business_outlined,
+                                      color: AppTheme.primaryGreen,
+                                      size: 18,
+                                    ),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: onLoginPressed,
-                                icon: const Icon(Icons.login_rounded, size: 18),
-                                label: const Text('Iniciar sesión'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
+                        if (isLoggedIn) ...[
+                          for (var index = 0; index < _items.length; index++)
+                            _buildNavigationItem(context, _items[index], index),
+                          if (isAdmin)
+                            _buildNavigationItem(
+                              context,
+                              _SidebarItem(
+                                label: 'Verificar empresas',
+                                icon: Icons.business_outlined,
                               ),
+                              4,
                             ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: onRegisterPressed,
-                                icon: const Icon(
-                                  Icons.person_add_alt_1_rounded,
-                                  size: 18,
-                                ),
-                                label: const Text('Registrarse'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryGreen,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
+                          if (isAdmin)
+                            _buildNavigationItem(
+                              context,
+                              _SidebarItem(
+                                label: 'Logs',
+                                icon: Icons.terminal_outlined,
                               ),
+                              5,
                             ),
-                          ),
+                          const Spacer(),
+                          // Muestra el botón de Cerrar Sesión si hay un usuario logeado
+                          _buildLogoutButton(context),
                         ] else ...[
-                          SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: Center(
-                              child: IconButton(
-                                tooltip: 'Iniciar sesión',
-                                onPressed: onLoginPressed,
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  Icons.login_rounded,
-                                  color: Colors.white70,
-                                  size: 18,
+                          const Spacer(),
+                          // Muestra Iniciar Sesión / Registrarse SOLO si NO ha iniciado sesión
+                          if (isExpanded) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Divider(
+                                color: Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: onLoginPressed,
+                                  icon: const Icon(
+                                    Icons.login_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Iniciar sesión'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: Center(
-                              child: IconButton(
-                                tooltip: 'Registrarse',
-                                onPressed: onRegisterPressed,
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  Icons.person_add_alt_1_rounded,
-                                  color: AppTheme.primaryGreen,
-                                  size: 18,
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: onRegisterPressed,
+                                  icon: const Icon(
+                                    Icons.person_add_alt_1_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Registrarse'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryGreen,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ] else ...[
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: Center(
+                                child: IconButton(
+                                  tooltip: 'Iniciar sesión',
+                                  onPressed: onLoginPressed,
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(
+                                    Icons.login_rounded,
+                                    color: Colors.white70,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: Center(
+                                child: IconButton(
+                                  tooltip: 'Registrarse',
+                                  onPressed: onRegisterPressed,
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(
+                                    Icons.person_add_alt_1_rounded,
+                                    color: AppTheme.primaryGreen,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                        _buildLogoutButton(context),
                         const SizedBox(height: 12),
                       ],
                     ),

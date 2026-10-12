@@ -9,7 +9,7 @@ import 'widgets/view_vacantes.dart';
 import 'widgets/view_logs.dart'; // <--- 1. Importación de la nueva vista
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
-
+import '../../main.dart';
 import '../auth/login_modal.dart';
 import '../auth/register_modal.dart';
 
@@ -31,6 +31,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ?.toLowerCase() ??
         '';
     return role == 'administrador' || role == 'admin';
+  }
+
+  bool get _isRRHH {
+    final metadata = supabase.auth.currentUser?.userMetadata;
+    final role = metadata?['role']?.toString().toLowerCase();
+    return metadata?['isRRHH'] == true || role == 'responsable rrhh';
   }
 
   @override
@@ -65,13 +71,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
       case 1:
-        return const ViewRegistros();
-      case 2:
-        return const ViewPerfil();
-      case 3:
         return const ViewCandidatos();
-      case 4:
+      case 2:
         return const ViewVacantes();
+      case 3:
+        return const ViewPerfil();
+      case 4:
+        return _isAdmin ? const ViewRegistros() : const ViewInicio();
       case 5:
         // 2. Renderiza ViewLogs solo si el usuario tiene rol de administrador
         return _isAdmin ? const ViewLogs() : const ViewInicio();
@@ -87,43 +93,28 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Widget _buildComingSoon(String section, String emoji) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 38)),
-            const SizedBox(height: 12),
-            Text(
-              section,
-              style: const TextStyle(
-                color: AppTheme.textDark,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Esta sección estará disponible próximamente.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[700]),
-            ),
-          ],
+  Future<void> _onLogoutPressed() async {
+    try {
+      await supabase.auth.signOut();
+      if (!mounted) return;
+      setState(() {
+        _selectedIndex = 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sesión cerrada correctamente.'),
+          backgroundColor: AppTheme.primaryGreen,
         ),
-      ),
-    );
-  }
-
-  void _onLogoutPressed() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'La opción de cerrar sesión estará disponible próximamente.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al cerrar sesión: $e'),
+          backgroundColor: Colors.redAccent,
         ),
-      ),
-    );
+      );
+    }
   }
 
   // --- MODAL CENTRADO DE REGISTRO ---
@@ -162,34 +153,32 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Selecciona el método con el que deseas registrarte en NEOGENESIS IA:',
+                'Selecciona cómo quieres registrarte en NEOGENESIS IA:',
                 style: TextStyle(color: Colors.grey[400], fontSize: 13),
               ),
               const SizedBox(height: 24),
               _buildModalOption(
-                icon: Icons.email_outlined,
-                title: 'Registrarse con Correo',
-                subtitle: 'Crea tu cuenta con un correo y contraseña',
+                icon: Icons.person_outline,
+                title: 'Registrarme como usuario',
+                subtitle: 'Crea una cuenta personal',
                 onTap: () {
                   Navigator.pop(context);
                   showDialog(
                     context: screenContext,
-                    builder: (context) => const RegisterModal(),
+                    builder: (context) => const RegisterModal(isRRHH: false),
                   );
                 },
               ),
               const SizedBox(height: 12),
               _buildModalOption(
-                icon: Icons.g_mobiledata_rounded,
-                iconSize: 28,
-                title: 'Registrarse con Google',
-                subtitle: 'Acceso rápido con tu cuenta Google',
+                icon: Icons.business_outlined,
+                title: 'Registrarme como empresa',
+                subtitle: 'Crea una cuenta para gestionar procesos de RRHH',
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Registro con Google seleccionado'),
-                    ),
+                  showDialog(
+                    context: screenContext,
+                    builder: (context) => const RegisterModal(isRRHH: true),
                   );
                 },
               ),
@@ -341,6 +330,9 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               CustomSidebar(
                 selectedIndex: _selectedIndex,
+                isLoggedIn: isLoggedIn,
+                isAdmin: _isAdmin,
+                isRRHH: _isRRHH,
                 isExpanded: isSidebarExpanded,
                 onNavigationSelected: _onTabSelected,
                 onHoverChanged: canExpandOnHover

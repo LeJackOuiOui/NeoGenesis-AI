@@ -3,7 +3,8 @@ import '../../../config/theme/app_theme.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/services/api_service.dart';
 import '../../../main.dart';
-import 'custom_otp_modal.dart'; // Importación del modal de OTP
+
+// Importación del modal de OTP
 
 class ViewRegistros extends StatefulWidget {
   const ViewRegistros({super.key});
@@ -54,6 +55,10 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                 'fechaIngreso': user.fechaIngreso,
                 'fecha': _formatDate(user.fechaIngreso ?? user.creadoEn),
                 'bajaLogica': user.bajaLogica,
+                'companyNit': user.companyNit,
+                'companyRut': user.companyRut,
+                'companyAddress': user.companyAddress,
+                'companyVerificationStatus': user.companyVerificationStatus,
               },
             ),
           );
@@ -403,6 +408,19 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                                       color: Colors.grey[600],
                                                     ),
                                                   ),
+                                                  if ((item['companyNit'] ?? '')
+                                                      .toString()
+                                                      .isNotEmpty)
+                                                    Text(
+                                                      'Empresa · ${item['companyVerificationStatus'] == 'approved' ? 'Verificada' : 'Pendiente de verificación'}',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: item['companyVerificationStatus'] ==
+                                                                'approved'
+                                                            ? Colors.green[700]
+                                                            : Colors.orange[800],
+                                                      ),
+                                                    ),
                                                 ],
                                               ),
                                             ),
@@ -602,6 +620,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       text: (employee?['correo'] ?? '').toString(),
     );
     final passwordController = TextEditingController();
+    final isCompanyAccount =
+        (employee?['companyNit'] ?? '').toString().isNotEmpty;
     final salarioController = TextEditingController(
       text: ((employee?['salarioBase'] ?? 0) as num).toString(),
     );
@@ -612,6 +632,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
     const cargoOptions = [
       'Administrador',
       'Responsable RRHH',
+      'Responsable de Recursos Humanos',
       'Analista de Recursos Humanos',
       'Reclutador',
       'Responsable de Nómina',
@@ -646,7 +667,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(isEditing ? 'Editar empleado' : 'Registrar empleado'),
+          title: Text(
+            isEditing && isCompanyAccount
+                ? 'Verificar empresa'
+                : isEditing
+                ? 'Editar empleado'
+                : 'Registrar empleado',
+          ),
           content: SizedBox(
             width: 420,
             child: Form(
@@ -657,13 +684,22 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                   children: [
                     TextFormField(
                       controller: nombreController,
-                      inputFormatters: [FormValidators.nameInputFormatter],
+                      inputFormatters: isCompanyAccount
+                          ? null
+                          : [FormValidators.nameInputFormatter],
                       maxLength: 100,
                       buildCounter: _hideCounter,
                       decoration: const InputDecoration(
                         labelText: 'Nombre completo *',
                       ),
-                      validator: FormValidators.personName,
+                      validator: isCompanyAccount
+                          ? (value) => FormValidators.requiredText(
+                              value,
+                              label: 'La razón social',
+                              minLength: 2,
+                              maxLength: 100,
+                            )
+                          : FormValidators.personName,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -682,7 +718,8 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                         }
                         final emailError = FormValidators.email(value);
                         if (emailError != null) return emailError;
-                        if (!ApiService.isValidGmailEmail(value)) {
+                        if (!isCompanyAccount &&
+                            !ApiService.isValidGmailEmail(value)) {
                           return 'Usa un Gmail válido';
                         }
                         return null;
@@ -699,6 +736,39 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                               'Usa al menos 8 caracteres e incluye letras y números.',
                         ),
                         validator: FormValidators.password,
+                      ),
+                    ],
+                    if (isEditing && isCompanyAccount) ...[
+                      const SizedBox(height: 16),
+                      Card(
+                        color: AppTheme.lightGreenBg,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Datos de verificación de empresa',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              Text('NIT: ${employee['companyNit']}'),
+                              Text('RUT: ${employee['companyRut'] ?? 'N/A'}'),
+                              Text(
+                                'Dirección: ${employee['companyAddress'] ?? 'N/A'}',
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Estado: ${employee['companyVerificationStatus'] == 'approved' ? 'Verificada' : 'Pendiente'}',
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Verifica estos datos antes de asignar el rol Responsable RRHH.',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -757,11 +827,12 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       validator: (value) => FormValidators.positiveNumber(
                         value,
                         label: 'El salario',
+                        allowZero: isCompanyAccount,
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: contratoOptions.contains(selectedContrato)
+                      initialValue: contratoOptions.contains(selectedContrato)
                           ? selectedContrato
                           : contratoOptions.first,
                       decoration: const InputDecoration(
@@ -801,7 +872,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: roles.contains(selectedRole)
+                      initialValue: roles.contains(selectedRole)
                           ? selectedRole
                           : roles.last,
                       decoration: const InputDecoration(labelText: 'Rol *'),
@@ -854,6 +925,13 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                       ),
                       tipoContrato: selectedContrato,
                       fechaIngreso: selectedDate,
+                    );
+                    await _apiService.updateUser(
+                      userId: employee['id'].toString(),
+                      nombre: nombreController.text,
+                      cargo: cargoValue.join(', '),
+                      rol: selectedRole,
+                      estado: (employee['estado'] ?? 'Activo').toString(),
                     );
                   } else {
                     final email = emailController.text.trim();
