@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../models/candidate.dart';
-import '../../models/candidate_match.dart';
-import '../../models/job.dart';
-import '../../services/affinity_score_service.dart';
-import '../../services/embedding_service.dart';
-import '../../services/mock_embedding_service.dart';
+import '../../data/models/candidate.dart';
+import '../../data/models/candidate_match.dart';
+import '../../data/models/job.dart';
+import '../../data/services/affinity_score_service.dart';
+import '../../data/services/embedding_service.dart';
+import '../../data/services/mock_embedding_service.dart';
 import 'candidate_selection_screen.dart';
 
 class CandidateRankingScreen extends StatefulWidget {

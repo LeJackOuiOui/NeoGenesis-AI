@@ -16,11 +16,13 @@ class LoginModal extends StatefulWidget {
 class _LoginModalState extends State<LoginModal> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _nitController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   late final ApiService _apiService;
   late final AuditService _auditService;
 
+  bool _isEmpresa = false; // Toggle: false = Usuario, true = Empresa
   bool _rememberMe = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -36,6 +38,7 @@ class _LoginModalState extends State<LoginModal> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _nitController.dispose();
     super.dispose();
   }
 
@@ -44,42 +47,30 @@ class _LoginModalState extends State<LoginModal> {
 
     final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
-
-    if (email.isEmpty || password.isEmpty) {
-      _showMessage('Ingresa tu correo y contraseña.', isError: true);
-      return;
-    }
+    final nit = _nitController.text.trim();
 
     setState(() => _isLoading = true);
 
     try {
-      // 1. Intentar iniciar sesión
+      // 1. Iniciar sesión en Supabase
       await _apiService.login(email: email, password: password);
 
       // 2. Obtener el perfil del usuario logueado
       final userProfile = await _apiService.getCurrentUserProfile();
       final currentUserId = supabase.auth.currentUser?.id;
 
-      // 3. Validar si el usuario está inactivo en el sistema
-      if (userProfile?.estado == 'Inactivo') {
-        await _apiService.signOut();
-
-        // Registrar intento bloqueado por usuario inactivo
-        await _auditService.logAuthAttempt(
-          email: email,
-          exitoso: false,
-          usuarioId: currentUserId,
-          detalleError: 'Usuario inactivo en la plataforma',
-        );
-
-        _showMessage(
-          'Tu usuario está inactivo. Contacta al administrador.',
-          isError: true,
-        );
-        return;
+      // 3. Si seleccionó Empresa, validamos que el NIT coincida con su perfil registrado
+      if (_isEmpresa) {
+        if (userProfile == null || userProfile.companyNit != nit) {
+          await _apiService.signOut();
+          _showMessage(
+            'El NIT ingresado no coincide con el registrado en esta cuenta corporativa.',
+            isError: true,
+          );
+          return;
+        }
       }
 
-      // --- HU-10 & Trazabilidad Ciega: Registrar Login Exitoso ---
       await _auditService.logAuthAttempt(
         email: email,
         exitoso: true,
@@ -88,29 +79,20 @@ class _LoginModalState extends State<LoginModal> {
 
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Inicio de sesión exitoso.'),
-          backgroundColor: AppTheme.primaryGreen,
-        ),
-      );
+      _showMessage('Inicio de sesión exitoso.', isError: false);
     } on AuthException catch (error) {
-      // --- HU-10 & Trazabilidad Ciega: Registrar Intento Fallido ---
       await _auditService.logAuthAttempt(
         email: email,
         exitoso: false,
         detalleError: error.message,
       );
-
       _showMessage(error.message, isError: true);
     } catch (error) {
-      // --- HU-10 & Trazabilidad Ciega: Registrar Error Inesperado ---
       await _auditService.logAuthAttempt(
         email: email,
         exitoso: false,
         detalleError: error.toString(),
       );
-
       _showMessage(
         'No se pudo iniciar sesión. Verifica tus credenciales.',
         isError: true,
@@ -143,10 +125,10 @@ class _LoginModalState extends State<LoginModal> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       clipBehavior: Clip.antiAlias,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 850, maxHeight: 520),
+        constraints: const BoxConstraints(maxWidth: 850, maxHeight: 560),
         child: Row(
           children: [
-            // Panel Izquierdo
+            // Panel Izquierdo Decorativo
             Expanded(
               child: Container(
                 color: AppTheme.lightGreenBg,
@@ -201,31 +183,156 @@ class _LoginModalState extends State<LoginModal> {
               ),
             ),
 
-            // Panel Derecho Formulario
+            // Panel Derecho con Formulario y Toggle
             Expanded(
               child: Container(
                 color: Colors.white,
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 24,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Inicio de Sesión',
-                        style: TextStyle(
-                          fontSize: 22,
+                      // TOGGLE SUPERIOR (Usuario / Empresa)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(() => _isEmpresa = false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: !_isEmpresa
+                                        ? Colors.white
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: !_isEmpresa
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                              blurRadius: 4,
+                                            ),
+                                          ]
+                                        : [],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'Usuario',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: !_isEmpresa
+                                          ? AppTheme.primaryGreen
+                                          : Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(() => _isEmpresa = true),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _isEmpresa
+                                        ? Colors.white
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: _isEmpresa
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                              blurRadius: 4,
+                                            ),
+                                          ]
+                                        : [],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'Empresa',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: _isEmpresa
+                                          ? AppTheme.primaryGreen
+                                          : Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      Text(
+                        _isEmpresa
+                            ? 'Portal de Empresas'
+                            : 'Portal de Usuarios',
+                        style: const TextStyle(
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textDark,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Ingresa tus credenciales para continuar',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        _isEmpresa
+                            ? 'Ingresa el NIT y tus credenciales'
+                            : 'Ingresa tus credenciales para continuar',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+
+                      // Campo NIT exclusivo si es empresa
+                      if (_isEmpresa) ...[
+                        TextFormField(
+                          controller: _nitController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            hintText: 'NIT de la empresa',
+                            prefixIcon: const Icon(
+                              Icons.business_outlined,
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (_isEmpresa &&
+                                (value == null || value.trim().isEmpty)) {
+                              return 'Ingresa el NIT de la empresa';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                      ],
 
                       TextFormField(
                         controller: _emailController,
@@ -259,7 +366,7 @@ class _LoginModalState extends State<LoginModal> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _passwordController,
@@ -289,33 +396,6 @@ class _LoginModalState extends State<LoginModal> {
                         validator: (value) => value == null || value.isEmpty
                             ? 'Ingresa tu contraseña'
                             : null,
-                      ),
-                      const SizedBox(height: 8),
-
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _rememberMe,
-                            activeColor: AppTheme.primaryGreen,
-                            onChanged: (val) =>
-                                setState(() => _rememberMe = val ?? false),
-                          ),
-                          const Text(
-                            'Recordarme',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              '¿Olvidaste tu contraseña?',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.primaryGreen,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 16),
 

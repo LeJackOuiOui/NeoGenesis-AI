@@ -46,34 +46,25 @@ class ApiService {
       final row = await client
           .from('profiles')
           .select(
-            'id, nombre, email, cargo, role, estado, created_at, salario_base, tipo_contrato, fecha_ingreso, baja_logica',
+            'id, nombre, email, role, created_at, company_nit, company_dv, company_address, company_verification_status',
           )
           .eq('id', currentUser.id)
           .maybeSingle();
 
       if (row == null) return null;
       return UserModel.fromMap(Map<String, dynamic>.from(row));
-    } on PostgrestException catch (error) {
-      if (!_isMissingColumnError(error)) rethrow;
-
-      final row = await client
-          .from('profiles')
-          .select('id, nombre, email, cargo, role, estado, created_at')
-          .eq('id', currentUser.id)
-          .maybeSingle();
-
-      if (row == null) return null;
-      return UserModel.fromMap(Map<String, dynamic>.from(row));
+    } catch (error) {
+      return null;
     }
   }
 
   /// Inicia sesión con el proveedor de OAuth de Google.
-  Future<bool> loginWithGoogle() async {
-    return await client.auth.signInWithOAuth(
-      OAuthProvider.google,
-      redirectTo: 'io.supabase.flutter://login-callback',
-    );
-  }
+  // Future<bool> loginWithGoogle() async {
+  //   return await client.auth.signInWithOAuth(
+  //     OAuthProvider.google,
+  //     redirectTo: 'io.supabase.flutter://login-callback',
+  //   );
+  // }
 
   /// Cierra la sesión activa en el dispositivo.
   Future<void> signOut() async {
@@ -134,23 +125,14 @@ class ApiService {
       final rows = await client
           .from('profiles')
           .select(
-            'id, nombre, email, cargo, role, estado, created_at, salario_base, tipo_contrato, fecha_ingreso, baja_logica',
+            'id, nombre, email, role, created_at, company_nit, company_dv, company_address, company_verification_status',
           )
           .order('created_at', ascending: false);
       return (rows as List)
           .map((row) => UserModel.fromMap(Map<String, dynamic>.from(row)))
           .toList();
-    } on PostgrestException catch (error) {
-      if (!_isMissingColumnError(error)) {
-        rethrow;
-      }
-      final rows = await client
-          .from('profiles')
-          .select('id, nombre, email, cargo, role, estado, created_at')
-          .order('created_at', ascending: false);
-      return (rows as List)
-          .map((row) => UserModel.fromMap(Map<String, dynamic>.from(row)))
-          .toList();
+    } catch (e) {
+      return [];
     }
   }
 

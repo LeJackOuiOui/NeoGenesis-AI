@@ -4,6 +4,9 @@ import '../../../config/theme/app_theme.dart';
 class CustomSidebar extends StatelessWidget {
   final int selectedIndex;
   final bool isExpanded;
+  final bool isLoggedIn;
+  final bool isAdmin;
+  final bool isRRHH;
   final ValueChanged<int> onNavigationSelected;
   final ValueChanged<bool> onHoverChanged;
   final VoidCallback onToggle;
@@ -15,6 +18,9 @@ class CustomSidebar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.isExpanded,
+    required this.isLoggedIn,
+    this.isAdmin = false,
+    this.isRRHH = false,
     required this.onNavigationSelected,
     required this.onHoverChanged,
     required this.onToggle,
@@ -22,11 +28,8 @@ class CustomSidebar extends StatelessWidget {
     required this.onRegisterPressed,
     required this.onLogoutPressed,
   });
-
   static const _items = [
     _SidebarItem(label: 'Inicio', icon: Icons.home_outlined),
-    _SidebarItem(label: 'Registros', icon: Icons.assignment_outlined),
-    _SidebarItem(label: 'Candidatos', icon: Icons.people_outline),
     _SidebarItem(label: 'Vacantes', icon: Icons.work_outline),
     _SidebarItem(label: 'Perfil', icon: Icons.person_outline),
   ];
@@ -115,92 +118,145 @@ class CustomSidebar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        for (var index = 0; index < _items.length; index++)
-                          _buildNavigationItem(context, _items[index], index),
-                        const Spacer(),
-                        if (isExpanded) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Divider(
-                              color: Colors.white.withValues(alpha: 0.12),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: onLoginPressed,
-                                icon: const Icon(Icons.login_rounded, size: 18),
-                                label: const Text('Iniciar sesión'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
+                        if (isLoggedIn) ...[
+                          // Inicio (Índice 0)
+                          _buildNavigationItem(context, _items[0], 0),
+                          // Vacantes (Índice 1)
+                          _buildNavigationItem(context, _items[1], 1),
+
+                          // Mi Hoja de Vida - SOLO para usuarios normales (Índice 2)
+                          if (!isAdmin && !isRRHH)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Mi Hoja de Vida',
+                                icon: Icons.description_outlined,
                               ),
+                              2,
                             ),
+
+                          // Perfil (Índice 3 para usuarios normales, Índice 2 para empresas/admins)
+                          _buildNavigationItem(
+                            context,
+                            _items[2],
+                            (!isAdmin && !isRRHH) ? 3 : 2,
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: onRegisterPressed,
-                                icon: const Icon(
-                                  Icons.person_add_alt_1_rounded,
-                                  size: 18,
-                                ),
-                                label: const Text('Registrarse'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryGreen,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
+
+                          // Vistas de Administrador
+                          if (isAdmin)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Verificar empresas',
+                                icon: Icons.business_outlined,
                               ),
+                              4,
                             ),
-                          ),
+                          if (isAdmin)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Logs',
+                                icon: Icons.terminal_outlined,
+                              ),
+                              5,
+                            ),
+
+                          const Spacer(),
+                          _buildLogoutButton(context),
                         ] else ...[
-                          SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: Center(
-                              child: IconButton(
-                                tooltip: 'Iniciar sesión',
-                                onPressed: onLoginPressed,
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  Icons.login_rounded,
-                                  color: Colors.white70,
-                                  size: 18,
+                          const Spacer(),
+                          // Muestra Iniciar Sesión / Registrarse SOLO si NO ha iniciado sesión
+                          if (isExpanded) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Divider(
+                                color: Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: onLoginPressed,
+                                  icon: const Icon(
+                                    Icons.login_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Iniciar sesión'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: Center(
-                              child: IconButton(
-                                tooltip: 'Registrarse',
-                                onPressed: onRegisterPressed,
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  Icons.person_add_alt_1_rounded,
-                                  color: AppTheme.primaryGreen,
-                                  size: 18,
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: onRegisterPressed,
+                                  icon: const Icon(
+                                    Icons.person_add_alt_1_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Registrarse'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryGreen,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ] else ...[
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: Center(
+                                child: IconButton(
+                                  tooltip: 'Iniciar sesión',
+                                  onPressed: onLoginPressed,
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(
+                                    Icons.login_rounded,
+                                    color: Colors.white70,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: Center(
+                                child: IconButton(
+                                  tooltip: 'Registrarse',
+                                  onPressed: onRegisterPressed,
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(
+                                    Icons.person_add_alt_1_rounded,
+                                    color: AppTheme.primaryGreen,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                        _buildLogoutButton(context),
                         const SizedBox(height: 12),
                       ],
                     ),

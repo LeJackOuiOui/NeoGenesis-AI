@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
 import '../../../core/utils/validators.dart';
-import '../../data/services/api_service.dart';
 import '../../../main.dart';
 
 class RegisterModal extends StatefulWidget {
-  const RegisterModal({super.key});
+  final bool isRRHH;
+
+  const RegisterModal({super.key, this.isRRHH = false});
 
   @override
   State<RegisterModal> createState() => _RegisterModalState();
@@ -15,41 +17,52 @@ class RegisterModal extends StatefulWidget {
 class _RegisterModalState extends State<RegisterModal> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _nitController = TextEditingController();
+  final _rutController = TextEditingController();
+  final _companyAddressController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-
-  static const _roles = [
-    'Administrador',
-    'Reclutador',
-    'Responsable RRHH',
-    'Empleado',
-  ];
-
-  static const _cargos = [
-    'Analista de Recursos Humanos',
-    'Reclutador',
-    'Responsable de Nómina',
-    'Coordinador de Recursos Humanos',
-    'Asistente de Recursos Humanos',
-    'Empleado',
-  ];
-
-  String _selectedRole = 'Empleado';
-  String _selectedCargo = _cargos.first;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+
+  bool get _isRRHH => widget.isRRHH;
+
+  String get _selectedRole => 'Empleado';
+
+  String get _selectedPosition =>
+      _isRRHH ? 'Responsable de Recursos Humanos' : 'Empleado';
+
+  String? _validateNit(String? value) {
+    final nit = value?.trim() ?? '';
+    if (nit.isEmpty) return 'Ingresa el NIT de la empresa.';
+    if (!RegExp(r'^\d{9,10}$').hasMatch(nit)) {
+      return 'El NIT debe tener entre 9 y 10 dígitos.';
+    }
+    return null;
+  }
+
+  Widget _buildFieldLabel(String label) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _nitController.dispose();
+    _rutController.dispose();
+    _companyAddressController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -65,9 +78,16 @@ class _RegisterModalState extends State<RegisterModal> {
         password: _passwordController.text,
         data: {
           'full_name': _nameController.text.trim(),
-          'position': _selectedCargo,
+          'position': _selectedPosition,
           'role': _selectedRole,
+          'isRRHH': _isRRHH,
           'phone': _phoneController.text.trim(),
+          if (_isRRHH) ...{
+            'company_nit': _nitController.text.trim(),
+            'company_rut': _rutController.text.trim(),
+            'company_address': _companyAddressController.text.trim(),
+            'company_verification_status': 'pending',
+          },
         },
       );
 
@@ -84,9 +104,13 @@ class _RegisterModalState extends State<RegisterModal> {
           'nombre': _nameController.text.trim(),
           'email': email,
           'telefono': _phoneController.text.trim(),
-          'cargo': _selectedCargo,
           'role': _selectedRole,
-          'estado': 'Activo',
+          if (_isRRHH) ...{
+            'company_nit': _nitController.text.trim(),
+            'company_rut': _rutController.text.trim(),
+            'company_address': _companyAddressController.text.trim(),
+            'company_verification_status': 'pending',
+          },
         });
       }
 
@@ -96,7 +120,11 @@ class _RegisterModalState extends State<RegisterModal> {
         SnackBar(
           content: Text(
             authResponse.session == null
-                ? 'Cuenta creada. Revisa tu correo para confirmar el acceso.'
+                ? _isRRHH
+                      ? 'Solicitud de empresa creada. Revisa tu correo para confirmar el acceso; la verificación está pendiente.'
+                      : 'Cuenta creada. Revisa tu correo para confirmar el acceso.'
+                : _isRRHH
+                ? 'Solicitud de empresa creada. La verificación está pendiente.'
                 : 'Cuenta creada correctamente. Ya puedes iniciar sesión.',
           ),
           backgroundColor: AppTheme.primaryGreen,
@@ -165,9 +193,9 @@ class _RegisterModalState extends State<RegisterModal> {
                 ),
                 const SizedBox(height: 24),
 
-                const Text(
-                  'Nombre completo',
-                  style: TextStyle(
+                Text(
+                  _isRRHH ? 'Razón social' : 'Nombre completo',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -177,74 +205,83 @@ class _RegisterModalState extends State<RegisterModal> {
                 TextFormField(
                   controller: _nameController,
                   style: const TextStyle(color: Colors.white),
-                  inputFormatters: [FormValidators.nameInputFormatter],
+                  inputFormatters: _isRRHH
+                      ? null
+                      : [FormValidators.nameInputFormatter],
                   maxLength: 100,
                   buildCounter: _hideCounter,
-                  decoration: _inputDecoration('Tu nombre completo'),
-                  validator: FormValidators.personName,
-                ),
-                const SizedBox(height: 16),
-
-                const Text(
-                  'Cargo',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                  decoration: _inputDecoration(
+                    _isRRHH ? 'Razón social registrada' : 'Tu nombre completo',
                   ),
+                  validator: _isRRHH
+                      ? (value) => FormValidators.requiredText(
+                          value,
+                          label: 'El nombre de la empresa',
+                          minLength: 2,
+                          maxLength: 100,
+                        )
+                      : FormValidators.personName,
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedCargo,
-                  dropdownColor: AppTheme.textDark,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Selecciona tu cargo'),
-                  items: _cargos
-                      .map(
-                        (cargo) =>
-                            DropdownMenuItem(value: cargo, child: Text(cargo)),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) setState(() => _selectedCargo = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                const Text(
-                  'Rol',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                if (_isRRHH) ...[
+                  const SizedBox(height: 16),
+                  _buildFieldLabel('NIT'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _nitController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    maxLength: 10,
+                    buildCounter: _hideCounter,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration(
+                      'NIT, con dígito de verificación',
+                    ),
+                    validator: _validateNit,
                   ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedRole,
-                  dropdownColor: AppTheme.textDark,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Selecciona tu rol'),
-                  items: _roles
-                      .map(
-                        (role) =>
-                            DropdownMenuItem(value: role, child: Text(role)),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) setState(() => _selectedRole = value);
-                  },
-                ),
+                  const SizedBox(height: 16),
+                  _buildFieldLabel('Número de registro del RUT'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _rutController,
+                    maxLength: 30,
+                    buildCounter: _hideCounter,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration('Número impreso en el RUT'),
+                    validator: (value) => FormValidators.requiredText(
+                      value,
+                      label: 'El número de registro del RUT',
+                      minLength: 3,
+                      maxLength: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildFieldLabel('Dirección de la empresa'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _companyAddressController,
+                    maxLength: 200,
+                    buildCounter: _hideCounter,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration('Dirección registrada'),
+                    validator: (value) => FormValidators.requiredText(
+                      value,
+                      label: 'La dirección de la empresa',
+                      minLength: 5,
+                      maxLength: 200,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'La información se guardará como pendiente de verificación. '
+                    'El registro no confirma automáticamente la identidad de la empresa.',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 // CAMPO: CORREO ELECTRÓNICO
-                const Text(
-                  'Correo electrónico',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
+                _buildFieldLabel(
+                  _isRRHH ? 'Correo de contacto' : 'Correo electrónico',
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -269,26 +306,11 @@ class _RegisterModalState extends State<RegisterModal> {
                       borderSide: BorderSide.none,
                     ),
                   ),
-                  validator: (value) {
-                    final formatError = FormValidators.email(value);
-                    if (formatError != null) return formatError;
-                    final email = (value ?? '').trim().toLowerCase();
-                    if (!ApiService.isValidGmailEmail(email)) {
-                      return 'Usa un correo Gmail válido';
-                    }
-                    return null;
-                  },
+                  validator: FormValidators.email,
                 ),
                 const SizedBox(height: 16),
 
-                const Text(
-                  'Teléfono',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                _buildFieldLabel(_isRRHH ? 'Teléfono de contacto' : 'Teléfono'),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _phoneController,
@@ -302,19 +324,11 @@ class _RegisterModalState extends State<RegisterModal> {
                 ),
                 const SizedBox(height: 16),
 
-                const Text(
-                  'Contraseña',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                _buildFieldLabel('Contraseña'),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  onChanged: (_) => setState(() {}),
                   style: const TextStyle(color: Colors.white),
                   decoration:
                       _inputDecoration(
@@ -341,49 +355,6 @@ class _RegisterModalState extends State<RegisterModal> {
                         ),
                       ),
                   validator: FormValidators.password,
-                ),
-                const SizedBox(height: 16),
-
-                const Text(
-                  'Confirmar contraseña',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  onChanged: (_) => setState(() {}),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('Repite tu contraseña').copyWith(
-                    prefixIcon: const Icon(
-                      Icons.lock_outline,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
-                    suffixIcon: IconButton(
-                      tooltip: _obscureConfirmPassword
-                          ? 'Mostrar contraseña'
-                          : 'Ocultar contraseña',
-                      icon: Icon(
-                        _obscureConfirmPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: Colors.grey,
-                      ),
-                      onPressed: () => setState(
-                        () =>
-                            _obscureConfirmPassword = !_obscureConfirmPassword,
-                      ),
-                    ),
-                  ),
-                  validator: (value) => FormValidators.confirmedPassword(
-                    value,
-                    _passwordController.text,
-                  ),
                 ),
                 const SizedBox(height: 24),
 

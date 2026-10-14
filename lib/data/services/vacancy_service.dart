@@ -12,15 +12,70 @@ class VacancyService {
   const VacancyService(this.client);
 
   Future<List<VacancyModel>> fetchVacancies() async {
-    final rows = await client
+    final currentUser = client.auth.currentUser;
+    final metadata = currentUser?.userMetadata;
+    final isRRHH =
+        metadata?['isRRHH'] == true ||
+        metadata?['role']?.toString().toLowerCase() == 'responsable rrhh';
+
+    // 1. Consultamos las vacantes normalmente sin joins forzados
+    var query = client
         .from('vacantes')
         .select(
-          'id, title, min_experience_years, required_skills, min_education_level, removed_candidate_ids',
-        )
-        .order('created_at', ascending: false);
-    return (rows as List)
-        .map((row) => VacancyModel.fromMap(Map<String, dynamic>.from(row)))
+          'id, title, min_experience_years, required_skills, min_education_level, removed_candidate_ids, created_by',
+        );
+
+    // Si es una empresa, mostramos únicamente sus vacantes creadas
+    if (isRRHH && currentUser != null) {
+      query = query.eq('created_by', currentUser.id);
+    }
+
+    final rows = await query.order('created_at', ascending: false);
+    final vacanciesList = (rows as List)
+        .map((row) => Map<String, dynamic>.from(row))
         .toList();
+
+    // 2. Obtenemos los IDs de las empresas creadoras para buscar sus estados de verificación
+    final creatorIds = vacanciesList
+        .map((v) => v['created_by']?.toString())
+        .where((id) => id != null && id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    Map<String, String> verificationStatuses = {};
+    if (creatorIds.isNotEmpty) {
+      final profilesResponse = await client
+          .from('profiles')
+          .select('id, company_verification_status')
+          .inFilter('id', creatorIds);
+
+      for (var p in (profilesResponse as List)) {
+        final profileMap = Map<String, dynamic>.from(p);
+        verificationStatuses[profileMap['id'].toString()] =
+            profileMap['company_verification_status']?.toString() ?? 'pending';
+      }
+    }
+
+    // 3. Inyectamos el estado de verificación en cada vacante para el modelo
+    return vacanciesList.map((data) {
+      final creatorId = data['created_by']?.toString();
+      data['company_verification_status'] =
+          verificationStatuses[creatorId] ?? 'pending';
+      return VacancyModel.fromMap(data);
+    }).toList();
+  }
+
+  Future<void> aplicarAVacante(String vacancyId) async {
+    final currentUser = client.auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Debes iniciar sesión para postularte.');
+    }
+
+    await client.from('postulaciones').insert({
+      'vacante_id': vacancyId,
+      'usuario_id': currentUser.id,
+      'estado': 'enviada',
+    });
   }
 
   Future<VacancyModel> saveVacancy({
@@ -30,6 +85,7 @@ class VacancyService {
     required List<String> requiredSkills,
     required String minEducationLevel,
   }) async {
+    final currentUser = client.auth.currentUser;
     final vacancyId = id ?? _newVacancyId();
     final payload = {
       'id': vacancyId,
@@ -37,6 +93,7 @@ class VacancyService {
       'min_experience_years': minExperienceYears,
       'required_skills': requiredSkills,
       'min_education_level': minEducationLevel,
+      if (id == null && currentUser != null) 'created_by': currentUser.id,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     final row = id == null
@@ -197,5 +254,44 @@ class VacancyService {
           'candidate_id': entry.key.toString(),
         }),
     };
+  }
+
+  Future<bool> usuarioYaSePostulo(String vacanteId) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return false;
+
+    final response = await client
+        .from('postulaciones')
+        .select('id')
+        .eq('vacante_id', vacanteId)
+        .eq('usuario_id', userId)
+        .maybeSingle();
+
+    return response != null;
+  }
+
+  Future<void> cancelarPostulacion(String vacanteId) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Usuario no autenticado.');
+
+    await client
+        .from('postulaciones')
+        .delete()
+        .eq('vacante_id', vacanteId)
+        .eq('usuario_id', userId);
+  }
+
+  Future<Map<String, int>> fetchConteoPostulaciones() async {
+    try {
+      final response = await client.from('postulaciones').select('vacante_id');
+      final Map<String, int> conteo = {};
+      for (var row in (response as List)) {
+        final vacanteId = row['vacante_id'].toString();
+        conteo[vacanteId] = (conteo[vacanteId] ?? 0) + 1;
+      }
+      return conteo;
+    } catch (_) {
+      return {};
+    }
   }
 }

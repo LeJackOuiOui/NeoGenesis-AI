@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:neogenesis_ai/models/candidate.dart';
-import 'package:neogenesis_ai/services/affinity_score_service.dart';
+import 'package:neogenesis_ai/data/models/candidate.dart';
+import 'package:neogenesis_ai/data/services/affinity_score_service.dart';
 
 void main() {
   group('AffinityScoreService', () {

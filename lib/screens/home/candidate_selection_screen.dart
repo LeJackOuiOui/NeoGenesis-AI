@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../models/candidate.dart';
-import '../../models/candidate_match.dart';
-import '../../models/candidate_selection.dart';
-import '../../services/candidate_selection_service.dart';
+import '../../data/models/candidate.dart';
+import '../../data/models/candidate_match.dart';
+import '../../data/models/candidate_selection.dart';
+import '../../data/services/candidate_selection_service.dart';
 
 class CandidateSelectionScreen extends StatefulWidget {
   final List<CandidateMatch> rankedCandidates;

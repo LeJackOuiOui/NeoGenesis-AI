@@ -34,10 +34,12 @@ class FormValidators {
   }) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return '$label es obligatorio.';
-    if (text.length < minLength)
+    if (text.length < minLength) {
       return '$label debe tener al menos $minLength caracteres.';
-    if (text.length > maxLength)
+    }
+    if (text.length > maxLength) {
       return '$label no puede superar $maxLength caracteres.';
+    }
     return null;
   }
 
@@ -46,8 +48,9 @@ class FormValidators {
     if (text.isEmpty) return required ? 'Ingresa el nombre completo.' : null;
     if (text.length < 2) return 'El nombre debe tener al menos 2 caracteres.';
     if (text.length > 100) return 'El nombre no puede superar 100 caracteres.';
-    if (RegExp(r'\d').hasMatch(text))
+    if (RegExp(r'\d').hasMatch(text)) {
       return 'El nombre no puede contener números.';
+    }
     if (!RegExp(r"^[a-zA-ZÀ-ÖØ-öø-ÿ][a-zA-ZÀ-ÖØ-öø-ÿ .'-]*$").hasMatch(text)) {
       return 'El nombre solo puede contener letras, espacios, puntos, apóstrofes o guiones.';
     }

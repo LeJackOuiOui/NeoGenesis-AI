@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../config/theme/app_theme.dart';
 import '../../../main.dart';
-import '../../../models/job.dart';
+import '../../../data/models/job.dart';
 import '../../../data/mock_candidates.dart';
 import '../../auth/login_modal.dart';
 import '../../auth/register_modal.dart';
