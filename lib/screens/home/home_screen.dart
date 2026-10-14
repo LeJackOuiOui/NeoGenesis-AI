@@ -5,9 +5,10 @@ import '../../config/theme/app_theme.dart';
 import 'widgets/custom_sidebar.dart';
 import 'widgets/view_inicio.dart';
 import 'widgets/view_vacantes.dart';
-import 'widgets/view_logs.dart'; // <--- 1. Importación de la nueva vista
+import 'widgets/view_logs.dart';
 import 'widgets/view_perfil.dart';
 import 'widgets/view_registros.dart';
+import 'widgets/view_mi_cv.dart';
 import '../../main.dart';
 import '../auth/login_modal.dart';
 import '../auth/register_modal.dart';
@@ -69,16 +70,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
-      // case 1:
-      //   return const ViewCandidatos();
       case 1:
         return const ViewVacantes();
       case 2:
-        return const ViewPerfil();
+        return (!_isAdmin && !_isRRHH) ? const ViewMiCv() : const ViewPerfil();
       case 3:
-        return _isAdmin ? const ViewRegistros() : const ViewInicio();
+        return (!_isAdmin && !_isRRHH)
+            ? const ViewPerfil()
+            : (_isAdmin ? const ViewRegistros() : const ViewInicio());
       case 4:
-        // 2. Renderiza ViewLogs solo si el usuario tiene rol de administrador
+        return _isAdmin ? const ViewRegistros() : const ViewInicio();
+      case 5:
         return _isAdmin ? const ViewLogs() : const ViewInicio();
       case 0:
       default:

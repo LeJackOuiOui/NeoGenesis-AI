@@ -21,6 +21,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
   String _direccion = '';
   String? _avatarUrl;
   bool _isLoading = false;
+  String _verificationStatus = '';
 
   @override
   void initState() {
@@ -65,6 +66,8 @@ class _ViewPerfilState extends State<ViewPerfil> {
       } else {
         _rol = 'usuario';
       }
+      _verificationStatus =
+          data['company_verification_status']?.toString() ?? 'pending';
 
       _nit = _profileValue(data['company_nit'], '');
       _dv = _profileValue(data['company_dv'], '');
@@ -317,15 +320,15 @@ class _ViewPerfilState extends State<ViewPerfil> {
                                 color: AppTheme.textDark,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Rol: ${_rol[0].toUpperCase()}${_rol.substring(1)}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                            if (_rol == 'empresa' &&
+                                _verificationStatus == 'verified') ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.verified_rounded,
+                                color: AppTheme.primaryGreen,
+                                size: 20,
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),

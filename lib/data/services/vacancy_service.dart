@@ -18,6 +18,7 @@ class VacancyService {
         metadata?['isRRHH'] == true ||
         metadata?['role']?.toString().toLowerCase() == 'responsable rrhh';
 
+    // 1. Consultamos las vacantes normalmente sin joins forzados
     var query = client
         .from('vacantes')
         .select(
@@ -30,9 +31,38 @@ class VacancyService {
     }
 
     final rows = await query.order('created_at', ascending: false);
-    return (rows as List)
-        .map((row) => VacancyModel.fromMap(Map<String, dynamic>.from(row)))
+    final vacanciesList = (rows as List)
+        .map((row) => Map<String, dynamic>.from(row))
         .toList();
+
+    // 2. Obtenemos los IDs de las empresas creadoras para buscar sus estados de verificación
+    final creatorIds = vacanciesList
+        .map((v) => v['created_by']?.toString())
+        .where((id) => id != null && id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    Map<String, String> verificationStatuses = {};
+    if (creatorIds.isNotEmpty) {
+      final profilesResponse = await client
+          .from('profiles')
+          .select('id, company_verification_status')
+          .inFilter('id', creatorIds);
+
+      for (var p in (profilesResponse as List)) {
+        final profileMap = Map<String, dynamic>.from(p);
+        verificationStatuses[profileMap['id'].toString()] =
+            profileMap['company_verification_status']?.toString() ?? 'pending';
+      }
+    }
+
+    // 3. Inyectamos el estado de verificación en cada vacante para el modelo
+    return vacanciesList.map((data) {
+      final creatorId = data['created_by']?.toString();
+      data['company_verification_status'] =
+          verificationStatuses[creatorId] ?? 'pending';
+      return VacancyModel.fromMap(data);
+    }).toList();
   }
 
   Future<void> aplicarAVacante(String vacancyId) async {

@@ -104,9 +104,7 @@ class _RegisterModalState extends State<RegisterModal> {
           'nombre': _nameController.text.trim(),
           'email': email,
           'telefono': _phoneController.text.trim(),
-          'cargo': _selectedPosition,
           'role': _selectedRole,
-          'estado': 'Activo',
           if (_isRRHH) ...{
             'company_nit': _nitController.text.trim(),
             'company_rut': _rutController.text.trim(),
@@ -231,13 +229,13 @@ class _RegisterModalState extends State<RegisterModal> {
                   TextFormField(
                     controller: _nitController,
                     keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     maxLength: 10,
                     buildCounter: _hideCounter,
                     style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('NIT, con dígito de verificación'),
+                    decoration: _inputDecoration(
+                      'NIT, con dígito de verificación',
+                    ),
                     validator: _validateNit,
                   ),
                   const SizedBox(height: 16),
@@ -312,9 +310,7 @@ class _RegisterModalState extends State<RegisterModal> {
                 ),
                 const SizedBox(height: 16),
 
-                _buildFieldLabel(
-                  _isRRHH ? 'Teléfono de contacto' : 'Teléfono',
-                ),
+                _buildFieldLabel(_isRRHH ? 'Teléfono de contacto' : 'Teléfono'),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _phoneController,

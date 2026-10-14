@@ -509,7 +509,19 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                       ),
                                     ),
                                   ),
+                                  // El símbolo de verificado sale únicamente si NO es RRHH / Empresa
+                                  if (!_isRRHH &&
+                                      vacancy.companyVerificationStatus ==
+                                          'verified') ...[
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: AppTheme.primaryGreen,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
                                   if (_isRRHH) ...[
+                                    // Tus botones de edición y eliminación para RRHH...
                                     IconButton(
                                       tooltip: 'Editar vacante',
                                       onPressed: () =>

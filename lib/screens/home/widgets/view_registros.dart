@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../config/theme/app_theme.dart';
-import '../../../core/utils/validators.dart';
 import '../../../data/services/api_service.dart';
 import '../../../main.dart';
-
-// Importación del modal de OTP
 
 class ViewRegistros extends StatefulWidget {
   const ViewRegistros({super.key});
@@ -14,108 +11,207 @@ class ViewRegistros extends StatefulWidget {
 }
 
 class _ViewRegistrosState extends State<ViewRegistros> {
-  final TextEditingController _searchController = TextEditingController();
   final ApiService _apiService = ApiService(supabase);
-  String _selectedStatus = 'Todos';
-  bool _isLoadingUsers = false;
-  final List<Map<String, dynamic>> _empleados = [];
-  bool get _isAdmin {
-    final role =
-        (supabase.auth.currentUser?.userMetadata?['role'] as String?)
-            ?.toLowerCase() ??
-        '';
-    return role == 'administrador' || role == 'admin';
-  }
+  bool _isLoading = false;
+  final List<Map<String, dynamic>> _empresas = [];
 
   @override
   void initState() {
     super.initState();
-    _loadUsers();
+    _loadEmpresas();
   }
 
-  Future<void> _loadUsers() async {
-    setState(() => _isLoadingUsers = true);
+  Future<void> _loadEmpresas() async {
+    setState(() => _isLoading = true);
     try {
+      // Obtenemos todos los perfiles y filtramos solo los que son empresas
       final users = await _apiService.fetchUsers();
       if (!mounted) return;
+
       setState(() {
-        _empleados
+        _empresas
           ..clear()
           ..addAll(
-            users.map(
-              (user) => {
-                'id': user.id ?? '',
-                'nombre': user.nombre,
-                'correo': user.correo,
-                'cargo': user.cargo,
-                'rol': user.rol,
-                'estado': user.estado,
-                'salarioBase': user.salarioBase,
-                'tipoContrato': user.tipoContrato,
-                'fechaIngreso': user.fechaIngreso,
-                'fecha': _formatDate(user.fechaIngreso ?? user.creadoEn),
-                'bajaLogica': user.bajaLogica,
-                'companyNit': user.companyNit,
-                'companyRut': user.companyRut,
-                'companyAddress': user.companyAddress,
-                'companyVerificationStatus': user.companyVerificationStatus,
-              },
-            ),
+            users
+                .where((user) {
+                  final rol = user.rol.toLowerCase();
+                  final nit = (user.companyNit ?? '').trim();
+                  return rol == 'empresa' || nit.isNotEmpty;
+                })
+                .map(
+                  (user) => {
+                    'id': user.id ?? '',
+                    'nombre': user.nombre,
+                    'correo': user.correo,
+                    'telefono': user.telefono ?? 'No registrado',
+                    'role': user.rol,
+                    'companyNit': user.companyNit ?? '',
+                    'companyDv': user.companyDv ?? '',
+                    'companyAddress': user.companyAddress ?? 'No registrada',
+                    'companyVerificationStatus':
+                        user.companyVerificationStatus ?? 'pending',
+                    'isRRHH': user.isRRHH,
+                  },
+                ),
           );
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo cargar el listado de usuarios.'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cargar empresas: $e')));
       }
     } finally {
-      if (mounted) setState(() => _isLoadingUsers = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'Sin fecha';
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  // 1. MODAL VER INFORMACIÓN
+  void _verInformacion(Map<String, dynamic> empresa) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(empresa['nombre'] ?? 'Información de Empresa'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoRow('Razón Social / Nombre:', empresa['nombre']),
+              _buildInfoRow('Correo:', empresa['correo']),
+              _buildInfoRow('Teléfono:', empresa['telefono']),
+              _buildInfoRow(
+                'NIT:',
+                '${empresa['companyNit']}${empresa['companyDv'].isNotEmpty ? ' - ${empresa['companyDv']}' : ''}',
+              ),
+              _buildInfoRow('Dirección:', empresa['companyAddress']),
+              _buildInfoRow(
+                'Estado:',
+                empresa['companyVerificationStatus'] == 'verified'
+                    ? 'Verificada'
+                    : 'Pendiente',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
   }
 
-  String _formatCurrency(num? value) {
-    final amount = (value ?? 0).toDouble();
-    return 'S/ ${amount.toStringAsFixed(2)}';
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 14, color: AppTheme.textDark),
+          ),
+        ],
+      ),
+    );
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  // 2. VERIFICAR EMPRESA (Actualiza status a verified e isRRHH a true)
+  Future<void> _verificarEmpresa(Map<String, dynamic> empresa) async {
+    final userId = empresa['id']?.toString();
+    if (userId == null) return;
+
+    try {
+      await supabase
+          .from('profiles')
+          .update({
+            'company_verification_status': 'verified',
+            'is_rrhh': true,
+            'role': 'empresa',
+          })
+          .eq('id', userId);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Empresa verificada y habilitada como RRHH correctamente.',
+          ),
+          backgroundColor: AppTheme.primaryGreen,
+        ),
+      );
+      _loadEmpresas();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al verificar: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
-  List<Map<String, dynamic>> get _filteredEmployees {
-    final query = _searchController.text.trim().toLowerCase();
-    return _empleados.where((employee) {
-      final status = (employee['estado'] ?? '').toString();
-      final matchesStatus =
-          _selectedStatus == 'Todos' || status == _selectedStatus;
-      final hayCoincidencia =
-          query.isEmpty ||
-          [
-            employee['nombre'],
-            employee['cargo'],
-            employee['correo'],
-            employee['tipoContrato'],
-            employee['fecha'],
-          ].any((value) => value.toString().toLowerCase().contains(query));
-      return matchesStatus && hayCoincidencia;
-    }).toList();
-  }
+  // 3. RECHAZAR EMPRESA (Elimina la cuenta)
+  Future<void> _rechazarEmpresa(Map<String, dynamic> empresa) async {
+    final userId = empresa['id']?.toString();
+    if (userId == null) return;
 
-  int _countByStatus(String status) {
-    if (status == 'Todos') return _empleados.length;
-    return _empleados
-        .where((employee) => (employee['estado'] ?? '') == status)
-        .length;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rechazar empresa'),
+        content: Text(
+          '¿Estás seguro de rechazar y eliminar definitivamente la cuenta de ${empresa['nombre']}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Rechazar y Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      await _apiService.deleteEmployee(userId: userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Empresa rechazada y cuenta eliminada correctamente.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      _loadEmpresas();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo eliminar: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override
@@ -130,86 +226,18 @@ class _ViewRegistrosState extends State<ViewRegistros> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Registro de Personal',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Gestiona la información laboral básica del personal.',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_isAdmin) ...[
-                      ElevatedButton.icon(
-                        onPressed: () => _showEmployeeDialog(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(Icons.add, size: 20),
-                        label: const Text(
-                          'Nuevo Empleado',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ],
+                const Text(
+                  'Verificación de Empresas',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
+                  ),
                 ),
-                const SizedBox(height: 28),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cardWidth = constraints.maxWidth > 800
-                        ? (constraints.maxWidth - 32) / 3
-                        : constraints.maxWidth;
-
-                    return Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      children: [
-                        _buildKpiCard(
-                          title: 'Total Colaboradores',
-                          value: '${_empleados.length}',
-                          icon: Icons.people_alt_outlined,
-                          width: cardWidth,
-                        ),
-                        _buildKpiCard(
-                          title: 'Personal Activo',
-                          value: '${_countByStatus('Activo')}',
-                          icon: Icons.check_circle_outline,
-                          width: cardWidth,
-                        ),
-                        _buildKpiCard(
-                          title: 'Bajas Lógicas',
-                          value:
-                              '${_empleados.where((employee) => employee['bajaLogica'] == true).length}',
-                          icon: Icons.person_off_outlined,
-                          width: cardWidth,
-                        ),
-                      ],
-                    );
-                  },
+                const SizedBox(height: 4),
+                Text(
+                  'Revisa, valida o rechaza las solicitudes de registro corporativo.',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
                 ),
                 const SizedBox(height: 28),
                 Container(
@@ -228,80 +256,31 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      if (_isLoadingUsers)
+                      if (_isLoading)
                         const LinearProgressIndicator(
                           color: AppTheme.primaryGreen,
                         ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: (_) => setState(() {}),
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Buscar por nombre, cargo o correo...',
-                                prefixIcon: const Icon(
-                                  Icons.search,
-                                  color: AppTheme.primaryGreen,
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey[200]!,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.primaryGreen,
-                                    width: 1.5,
-                                  ),
+                      _empresas.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(40.0),
+                              child: Center(
+                                child: Text(
+                                  'No hay empresas pendientes o registradas.',
+                                  style: TextStyle(color: Colors.grey[600]),
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _buildStatusFilter('Todos'),
-                            _buildStatusFilter('Activo'),
-                            _buildStatusFilter('Inactivo'),
-                            _buildStatusFilter('En Vacaciones'),
-                          ],
-                        ),
-                      ),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minWidth: constraints.maxWidth - 40,
-                              ),
+                            )
+                          : SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
                               child: DataTable(
-                                columnSpacing:
-                                    20, // Reduce el espacio entre columnas para optimizar espacio
                                 headingRowColor: WidgetStateProperty.all(
                                   AppTheme.lightGreenBg.withValues(alpha: 0.5),
                                 ),
-                                columns: [
+                                columns: const [
                                   DataColumn(
                                     label: Text(
-                                      'Empleado',
+                                      'Empresa',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -309,7 +288,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      'Cargo',
+                                      'NIT',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -317,15 +296,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      'Contrato',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'Salario',
+                                      'Correo',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -341,790 +312,131 @@ class _ViewRegistrosState extends State<ViewRegistros> {
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      'Fecha Ingreso',
+                                      'Acciones',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  if (_isAdmin) ...[
-                                    DataColumn(
-                                      label: Text(
-                                        'Acciones',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                 ],
-                                rows: _filteredEmployees.map((item) {
-                                  final nombre = (item['nombre'] ?? '')
-                                      .toString();
-                                  final cargo = (item['cargo'] ?? '')
-                                      .toString();
+                                rows: _empresas.map((empresa) {
+                                  final isVerified =
+                                      empresa['companyVerificationStatus'] ==
+                                      'verified';
                                   return DataRow(
                                     cells: [
                                       DataCell(
+                                        Text(
+                                          empresa['nombre'] ?? '',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          '${empresa['companyNit']}${empresa['companyDv'].isNotEmpty ? ' - ${empresa['companyDv']}' : ''}',
+                                        ),
+                                      ),
+                                      DataCell(Text(empresa['correo'] ?? '')),
+                                      DataCell(
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isVerified
+                                                ? AppTheme.lightGreenBg
+                                                : Colors.orange[50],
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isVerified
+                                                ? 'Verificada'
+                                                : 'Pendiente',
+                                            style: TextStyle(
+                                              color: isVerified
+                                                  ? AppTheme.primaryGreen
+                                                  : Colors.orange[800],
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
                                         Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Container(
-                                              width: 36,
-                                              height: 36,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                gradient: _avatarGradient(
-                                                  nombre,
-                                                ),
+                                            OutlinedButton.icon(
+                                              onPressed: () =>
+                                                  _verInformacion(empresa),
+                                              icon: const Icon(
+                                                Icons.info_outline,
+                                                size: 16,
                                               ),
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                _avatarInitial(nombre),
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
+                                              label: const Text('Ver Info'),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    AppTheme.textDark,
                                               ),
                                             ),
-                                            const SizedBox(width: 12),
-                                            Flexible(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    nombre,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: AppTheme.textDark,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    (item['correo'] ?? '')
-                                                        .toString(),
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                  ),
-                                                  if ((item['companyNit'] ?? '')
-                                                      .toString()
-                                                      .isNotEmpty)
-                                                    Text(
-                                                      'Empresa · ${item['companyVerificationStatus'] == 'approved' ? 'Verificada' : 'Pendiente de verificación'}',
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: item['companyVerificationStatus'] ==
-                                                                'approved'
-                                                            ? Colors.green[700]
-                                                            : Colors.orange[800],
-                                                      ),
-                                                    ),
-                                                ],
+                                            const SizedBox(width: 8),
+                                            if (!isVerified) ...[
+                                              ElevatedButton.icon(
+                                                onPressed: () =>
+                                                    _verificarEmpresa(empresa),
+                                                icon: const Icon(
+                                                  Icons.check,
+                                                  size: 16,
+                                                ),
+                                                label: const Text('Verificar'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      AppTheme.primaryGreen,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            OutlinedButton.icon(
+                                              onPressed: () =>
+                                                  _rechazarEmpresa(empresa),
+                                              icon: const Icon(
+                                                Icons.close,
+                                                size: 16,
+                                                color: Colors.red,
+                                              ),
+                                              label: const Text(
+                                                'Rechazar',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                side: const BorderSide(
+                                                  color: Colors.redAccent,
+                                                ),
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      DataCell(
-                                        Text(
-                                          cargo.isEmpty ? 'Sin cargo' : cargo,
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          (item['tipoContrato'] ??
-                                                  'Tiempo Completo')
-                                              .toString(),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _formatCurrency(item['salarioBase']),
-                                        ),
-                                      ),
-                                      if (_isAdmin) ...[
-                                        DataCell(_buildStatusSelector(item)),
-                                      ] else ...[
-                                        DataCell(
-                                          _buildStatusChip(
-                                            item['estado'] ?? 'Activo',
-                                          ),
-                                        ),
-                                      ],
-                                      DataCell(
-                                        Text(
-                                          (item['fecha'] ?? 'Sin fecha')
-                                              .toString(),
-                                        ),
-                                      ),
-                                      if (_isAdmin) ...[
-                                        DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                tooltip: 'Editar',
-                                                icon: const Icon(
-                                                  Icons.edit_outlined,
-                                                  color: AppTheme.primaryGreen,
-                                                ),
-                                                onPressed: () =>
-                                                    _showEmployeeDialog(
-                                                      employee: item,
-                                                    ),
-                                              ),
-                                              IconButton(
-                                                tooltip: 'Baja lógica',
-                                                icon: const Icon(
-                                                  Icons.delete_outline,
-                                                  color: Colors.red,
-                                                ),
-                                                onPressed: () =>
-                                                    _deleteEmployee(item),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
                                     ],
                                   );
                                 }).toList(),
                               ),
                             ),
-                          );
-                        },
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatusSelector(Map<String, dynamic> employee) {
-    final currentStatus = (employee['estado'] ?? 'Activo').toString();
-
-    return PopupMenuButton<String>(
-      tooltip: 'Cambiar estado',
-      initialValue: currentStatus,
-      onSelected: (status) async {
-        final userId = employee['id']?.toString();
-        if (userId == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ID de empleado no válido.')),
-          );
-          return;
-        }
-
-        final previousStatus = employee['estado'];
-
-        setState(() {
-          employee['estado'] = status;
-        });
-        try {
-          await _apiService.updateUserStatus(userId: userId, estado: status);
-        } catch (e) {
-          if (!mounted) return;
-          setState(() {
-            employee['estado'] = previousStatus;
-          });
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error al actualizar: $e')));
-        }
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'Activo', child: Text('Activo')),
-        PopupMenuItem(value: 'En Vacaciones', child: Text('En Vacaciones')),
-        PopupMenuItem(value: 'Inactivo', child: Text('Inactivo')),
-      ],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildStatusChip(currentStatus),
-          const SizedBox(width: 4),
-          const Icon(Icons.arrow_drop_down, size: 18),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteEmployee(Map<String, dynamic> employee) async {
-    final id = employee['id']?.toString();
-    if (id == null || id.isEmpty) return;
-
-    if (id == supabase.auth.currentUser?.id) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No puedes eliminar tu propia cuenta.')),
-      );
-      return;
-    }
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar empleado'),
-        content: Text(
-          '¿Deseas eliminar definitivamente a ${employee['nombre']}? '
-          'Esta acción no se puede deshacer.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true || !mounted) return;
-
-    try {
-      await _apiService.deleteEmployee(userId: id);
-      if (!mounted) return;
-      setState(() => _empleados.removeWhere((item) => item['id'] == id));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Usuario ${employee['nombre']} eliminado'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('No se pudo eliminar: $error')));
-    }
-  }
-
-  Future<void> _showEmployeeDialog({Map<String, dynamic>? employee}) async {
-    final isEditing = employee != null;
-    final formKey = GlobalKey<FormState>();
-    final nombreController = TextEditingController(
-      text: (employee?['nombre'] ?? '').toString(),
-    );
-    final emailController = TextEditingController(
-      text: (employee?['correo'] ?? '').toString(),
-    );
-    final passwordController = TextEditingController();
-    final isCompanyAccount =
-        (employee?['companyNit'] ?? '').toString().isNotEmpty;
-    final salarioController = TextEditingController(
-      text: ((employee?['salarioBase'] ?? 0) as num).toString(),
-    );
-
-    const roles = ['Administrador', 'Responsable RRHH', 'Empleado'];
-    String selectedRole = (employee?['rol'] ?? 'Empleado').toString();
-
-    const cargoOptions = [
-      'Administrador',
-      'Responsable RRHH',
-      'Responsable de Recursos Humanos',
-      'Analista de Recursos Humanos',
-      'Reclutador',
-      'Responsable de Nómina',
-      'Coordinador de Recursos Humanos',
-      'Asistente de Recursos Humanos',
-      'Empleado',
-      'Analista Contable',
-      'Diseñador UX/UI',
-      'Desarrollador Full Stack',
-      'Especialista en Nómina',
-      'Líder de Selección',
-    ];
-    final selectedCargos = (employee?['cargo'] ?? '')
-        .toString()
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toSet();
-
-    const contratoOptions = [
-      'Tiempo Completo',
-      'Medio Tiempo',
-      'Por Horas',
-      'Contrato Temporal',
-    ];
-    String selectedContrato = (employee?['tipoContrato'] ?? 'Tiempo Completo')
-        .toString();
-    DateTime selectedDate =
-        (employee?['fechaIngreso'] as DateTime?) ?? DateTime.now();
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(
-            isEditing && isCompanyAccount
-                ? 'Verificar empresa'
-                : isEditing
-                ? 'Editar empleado'
-                : 'Registrar empleado',
-          ),
-          content: SizedBox(
-            width: 420,
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: nombreController,
-                      inputFormatters: isCompanyAccount
-                          ? null
-                          : [FormValidators.nameInputFormatter],
-                      maxLength: 100,
-                      buildCounter: _hideCounter,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre completo *',
-                      ),
-                      validator: isCompanyAccount
-                          ? (value) => FormValidators.requiredText(
-                              value,
-                              label: 'La razón social',
-                              minLength: 2,
-                              maxLength: 100,
-                            )
-                          : FormValidators.personName,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: emailController,
-                      enabled: !isEditing,
-                      keyboardType: TextInputType.emailAddress,
-                      inputFormatters: [FormValidators.emailInputFormatter],
-                      maxLength: 254,
-                      buildCounter: _hideCounter,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo institucional *',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Ingresa el correo';
-                        }
-                        final emailError = FormValidators.email(value);
-                        if (emailError != null) return emailError;
-                        if (!isCompanyAccount &&
-                            !ApiService.isValidGmailEmail(value)) {
-                          return 'Usa un Gmail válido';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (!isEditing) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Contraseña inicial *',
-                          helperText:
-                              'Usa al menos 8 caracteres e incluye letras y números.',
-                        ),
-                        validator: FormValidators.password,
-                      ),
-                    ],
-                    if (isEditing && isCompanyAccount) ...[
-                      const SizedBox(height: 16),
-                      Card(
-                        color: AppTheme.lightGreenBg,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Datos de verificación de empresa',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              Text('NIT: ${employee['companyNit']}'),
-                              Text('RUT: ${employee['companyRut'] ?? 'N/A'}'),
-                              Text(
-                                'Dirección: ${employee['companyAddress'] ?? 'N/A'}',
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Estado: ${employee['companyVerificationStatus'] == 'approved' ? 'Verificada' : 'Pendiente'}',
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Verifica estos datos antes de asignar el rol Responsable RRHH.',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Cargos *',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: cargoOptions.map((cargo) {
-                        final selected = selectedCargos.contains(cargo);
-                        return FilterChip(
-                          label: Text(cargo),
-                          selected: selected,
-                          onSelected: (_) {
-                            setDialogState(() {
-                              if (selected) {
-                                selectedCargos.remove(cargo);
-                              } else {
-                                selectedCargos.add(cargo);
-                              }
-                            });
-                          },
-                          selectedColor: AppTheme.primaryGreen.withValues(
-                            alpha: 0.16,
-                          ),
-                          checkmarkColor: AppTheme.primaryGreen,
-                          labelStyle: TextStyle(
-                            color: selected
-                                ? AppTheme.primaryGreen
-                                : AppTheme.textDark,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: salarioController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      inputFormatters: [FormValidators.decimalInputFormatter],
-                      decoration: const InputDecoration(
-                        labelText: 'Salario base *',
-                      ),
-                      validator: (value) => FormValidators.positiveNumber(
-                        value,
-                        label: 'El salario',
-                        allowZero: isCompanyAccount,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: contratoOptions.contains(selectedContrato)
-                          ? selectedContrato
-                          : contratoOptions.first,
-                      decoration: const InputDecoration(
-                        labelText: 'Tipo de contrato *',
-                      ),
-                      items: contratoOptions
-                          .map(
-                            (tipo) => DropdownMenuItem(
-                              value: tipo,
-                              child: Text(tipo),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setDialogState(() => selectedContrato = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Fecha de ingreso'),
-                      subtitle: Text(_formatDate(selectedDate)),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2010),
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => selectedDate = picked);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: roles.contains(selectedRole)
-                          ? selectedRole
-                          : roles.last,
-                      decoration: const InputDecoration(labelText: 'Rol *'),
-                      items: roles
-                          .map(
-                            (role) => DropdownMenuItem(
-                              value: role,
-                              child: Text(role),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setDialogState(() => selectedRole = value);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                if (selectedCargos.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Selecciona al menos un cargo.'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                  return;
-                }
-                final cargoValue = selectedCargos.toList()..sort();
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  if (isEditing) {
-                    await _apiService.updateEmployee(
-                      userId: employee['id'].toString(),
-                      nombre: nombreController.text,
-                      cargo: cargoValue.join(', '),
-                      salarioBase: double.parse(
-                        salarioController.text.replaceAll(',', '.'),
-                      ),
-                      tipoContrato: selectedContrato,
-                      fechaIngreso: selectedDate,
-                    );
-                    await _apiService.updateUser(
-                      userId: employee['id'].toString(),
-                      nombre: nombreController.text,
-                      cargo: cargoValue.join(', '),
-                      rol: selectedRole,
-                      estado: (employee['estado'] ?? 'Activo').toString(),
-                    );
-                  } else {
-                    final email = emailController.text.trim();
-
-                    final registration = await _apiService.registerHrUser(
-                      nombre: nombreController.text,
-                      correo: email,
-                      telefono: '',
-                      cargo: cargoValue.join(', '),
-                      rol: selectedRole,
-                      password: passwordController.text,
-                      estado: 'Activo',
-                    );
-                    final userId = registration.user.id;
-                    if (userId == null || userId.isEmpty) {
-                      throw Exception(
-                        'Supabase no devolvió el identificador del usuario.',
-                      );
-                    }
-                    await _apiService.updateEmployee(
-                      userId: userId,
-                      nombre: nombreController.text,
-                      cargo: cargoValue.join(', '),
-                      salarioBase: double.parse(
-                        salarioController.text.replaceAll(',', '.'),
-                      ),
-                      tipoContrato: selectedContrato,
-                      fechaIngreso: selectedDate,
-                    );
-                  }
-
-                  if (!context.mounted) return;
-                  Navigator.pop(dialogContext);
-                  await _loadUsers();
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isEditing
-                            ? 'Empleado actualizado correctamente.'
-                            : 'Empleado registrado correctamente.',
-                      ),
-                      backgroundColor: AppTheme.primaryGreen,
-                    ),
-                  );
-                } catch (error) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text('No se pudo guardar: $error'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
-              },
-              child: Text(isEditing ? 'Guardar cambios' : 'Guardar'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    nombreController.dispose();
-    emailController.dispose();
-    passwordController.dispose();
-    salarioController.dispose();
-  }
-
-  Widget? _hideCounter(
-    BuildContext context, {
-    required int currentLength,
-    required bool isFocused,
-    required int? maxLength,
-  }) => null;
-
-  LinearGradient _avatarGradient(String name) {
-    final colors = <List<Color>>[
-      [AppTheme.primaryGreen, const Color(0xFF087F5B)],
-      [const Color(0xFF1976D2), const Color(0xFF64B5F6)],
-      [const Color(0xFF7B1FA2), const Color(0xFFBA68C8)],
-    ];
-    final selected =
-        colors[(name.isEmpty ? 0 : name.codeUnitAt(0)) % colors.length];
-    return LinearGradient(colors: selected);
-  }
-
-  String _avatarInitial(String? name) {
-    final trimmedName = name?.trim() ?? '';
-    return trimmedName.isEmpty ? '?' : trimmedName[0].toUpperCase();
-  }
-
-  Widget _buildStatusFilter(String status) {
-    final selected = _selectedStatus == status;
-    final count = _countByStatus(status);
-    return ChoiceChip(
-      label: Text('$status ($count)'),
-      selected: selected,
-      onSelected: (_) => setState(() => _selectedStatus = status),
-      selectedColor: AppTheme.primaryGreen,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppTheme.textDark,
-        fontWeight: FontWeight.w600,
-        fontSize: 12,
-      ),
-      side: BorderSide(color: Colors.grey[300]!),
-      backgroundColor: Colors.white,
-    );
-  }
-
-  Widget _buildStatusChip(String estado) {
-    Color bg;
-    Color fg;
-
-    switch (estado) {
-      case 'Activo':
-        bg = AppTheme.lightGreenBg;
-        fg = AppTheme.primaryGreen;
-        break;
-      case 'Inactivo':
-        bg = Colors.red[50]!;
-        fg = Colors.red[700]!;
-        break;
-      default:
-        bg = Colors.amber[50]!;
-        fg = Colors.amber[800]!;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        estado,
-        style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildKpiCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required double width,
-  }) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
-                ),
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.lightGreenBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.primaryGreen, size: 26),
-          ),
-        ],
       ),
     );
   }

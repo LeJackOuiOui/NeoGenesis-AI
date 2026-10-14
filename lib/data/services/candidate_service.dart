@@ -14,10 +14,9 @@ class CandidateService {
   Future<List<CandidateModel>> fetchCandidates() async {
     final rows = await client
         .from('candidatos')
-        .select(
-          'id, full_name, email, phone, resume_data, created_at, resume_status, resume_original_filename, resume_error_message, resume_bucket_id, resume_object_path, resume_uploaded_at',
-        )
+        .select('id, full_name, email, phone, resume_data, created_at')
         .order('created_at', ascending: false);
+
     return (rows as List)
         .map(
           (row) =>
@@ -153,27 +152,30 @@ class CandidateService {
 
   Future<List<CandidateModel>> fetchPostulatedCandidates() async {
     try {
-      final response = await client
+      // 1. Obtener todas las postulaciones para extraer los IDs de los usuarios postulados
+      final postResponse = await client
           .from('postulaciones')
-          .select('usuario_id, estado, fecha_postulacion, profiles(*)');
+          .select('usuario_id, vacante_id');
 
-      if ((response as List).isEmpty) return [];
+      if ((postResponse as List).isEmpty) return [];
 
-      return (response as List).map((row) {
-        final profile = Map<String, dynamic>.from(
-          row['profiles'] as Map? ?? {},
-        );
-        return CandidateModel(
-          id: profile['id']?.toString() ?? '',
-          fullName:
-              profile['nombre']?.toString() ??
-              profile['full_name']?.toString() ??
-              'Candidato Postulado',
-          email: profile['email']?.toString() ?? '',
-          phone: profile['telefono']?.toString() ?? '',
-          resumeData: {},
-          // resumeData: [],
-        );
+      // Extraer los IDs únicos de usuario
+      final userIds = postResponse
+          .map((row) => row['usuario_id']?.toString())
+          .where((id) => id != null && id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      if (userIds.isEmpty) return [];
+
+      // 2. Consultar la información real de los candidatos asociados a esos usuarios
+      final candidatesResponse = await client
+          .from('candidatos')
+          .select('id, full_name, email, phone, resume_data, created_by')
+          .inFilter('created_by', userIds);
+
+      return (candidatesResponse as List).map((row) {
+        return CandidateModel.fromMap(Map<String, dynamic>.from(row as Map));
       }).toList();
     } catch (e) {
       return [];

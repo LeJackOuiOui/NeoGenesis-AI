@@ -14,6 +14,9 @@ class UserModel {
   final String? companyRut;
   final String? companyAddress;
   final String? companyVerificationStatus;
+  final String? telefono;
+  final String? companyDv;
+  final bool? isRRHH;
 
   const UserModel({
     this.id,
@@ -31,6 +34,9 @@ class UserModel {
     this.companyRut,
     this.companyAddress,
     this.companyVerificationStatus,
+    this.telefono,
+    this.companyDv,
+    this.isRRHH,
   });
 
   static double _parseDouble(dynamic value) {
@@ -66,6 +72,9 @@ class UserModel {
       companyRut: map['company_rut']?.toString(),
       companyAddress: map['company_address']?.toString(),
       companyVerificationStatus: map['company_verification_status']?.toString(),
+      telefono: map['telefono']?.toString(),
+      companyDv: map['company_dv']?.toString(),
+      isRRHH: map['is_rrhh'] == true || map['isRRHH'] == true,
     );
   }
 }

@@ -28,10 +28,8 @@ class CustomSidebar extends StatelessWidget {
     required this.onRegisterPressed,
     required this.onLogoutPressed,
   });
-
   static const _items = [
     _SidebarItem(label: 'Inicio', icon: Icons.home_outlined),
-    // _SidebarItem(label: 'Candidatos', icon: Icons.people_outline),
     _SidebarItem(label: 'Vacantes', icon: Icons.work_outline),
     _SidebarItem(label: 'Perfil', icon: Icons.person_outline),
   ];
@@ -120,59 +118,35 @@ class CustomSidebar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        if (isLoggedIn && isRRHH)
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isExpanded ? 16 : 0,
-                              vertical: 4,
-                            ),
-                            child: Tooltip(
-                              message: 'Cuenta de empresa',
-                              child: isExpanded
-                                  ? Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryGreen.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Row(
-                                        children: [
-                                          Icon(
-                                            Icons.business_outlined,
-                                            color: AppTheme.primaryGreen,
-                                            size: 16,
-                                          ),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            'Cuenta de empresa',
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.business_outlined,
-                                      color: AppTheme.primaryGreen,
-                                      size: 18,
-                                    ),
-                            ),
-                          ),
                         if (isLoggedIn) ...[
-                          for (var index = 0; index < _items.length; index++)
-                            _buildNavigationItem(context, _items[index], index),
+                          // Inicio (Índice 0)
+                          _buildNavigationItem(context, _items[0], 0),
+                          // Vacantes (Índice 1)
+                          _buildNavigationItem(context, _items[1], 1),
+
+                          // Mi Hoja de Vida - SOLO para usuarios normales (Índice 2)
+                          if (!isAdmin && !isRRHH)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Mi Hoja de Vida',
+                                icon: Icons.description_outlined,
+                              ),
+                              2,
+                            ),
+
+                          // Perfil (Índice 3 para usuarios normales, Índice 2 para empresas/admins)
+                          _buildNavigationItem(
+                            context,
+                            _items[2],
+                            (!isAdmin && !isRRHH) ? 3 : 2,
+                          ),
+
+                          // Vistas de Administrador
                           if (isAdmin)
                             _buildNavigationItem(
                               context,
-                              _SidebarItem(
+                              const _SidebarItem(
                                 label: 'Verificar empresas',
                                 icon: Icons.business_outlined,
                               ),
@@ -181,14 +155,14 @@ class CustomSidebar extends StatelessWidget {
                           if (isAdmin)
                             _buildNavigationItem(
                               context,
-                              _SidebarItem(
+                              const _SidebarItem(
                                 label: 'Logs',
                                 icon: Icons.terminal_outlined,
                               ),
                               5,
                             ),
+
                           const Spacer(),
-                          // Muestra el botón de Cerrar Sesión si hay un usuario logeado
                           _buildLogoutButton(context),
                         ] else ...[
                           const Spacer(),

@@ -85,6 +85,13 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textDark,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Reevaluar candidatos',
+            onPressed: _isLoading ? null : _loadAndEvaluate,
+            icon: const Icon(Icons.refresh, color: AppTheme.primaryGreen),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(

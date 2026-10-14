@@ -28,34 +28,60 @@ class CandidateCriteriaEvaluator {
     VacancyModel vacancy,
   ) {
     final reasons = <String>[];
-    final experienceYears = _experienceYears(
-      candidate.resumeData['experience'],
-    );
+    final data = candidate.resumeData;
+
+    // 1. Experiencia leída de la nueva estructura plana o de respaldo
+    final double experienceYears =
+        (data['experience_years'] as num?)?.toDouble() ??
+        (data['experience'] is num
+            ? (data['experience'] as num).toDouble()
+            : 0.0);
+
     if (experienceYears + 0.0001 < vacancy.minExperienceYears) {
       reasons.add(
         'Experiencia: ${experienceYears.toStringAsFixed(1)} años; se requieren ${vacancy.minExperienceYears.toStringAsFixed(1)}.',
       );
     }
 
-    final candidateSkills = _asStringList(
-      candidate.resumeData['skills'],
-    ).map(_normalize).where((skill) => skill.isNotEmpty).toList();
+    // 2. Habilidades (soporta tanto listas como texto separado por comas)
+    List<String> candidateSkills = [];
+    if (data['skills'] is List) {
+      candidateSkills = _asStringList(data['skills']);
+    } else if (data['skills'] is String) {
+      candidateSkills = (data['skills'] as String)
+          .split(',')
+          .map((s) => s.trim())
+          .toList();
+    }
+
+    final normalizedCandidateSkills = candidateSkills
+        .map(_normalize)
+        .where((s) => s.isNotEmpty)
+        .toList();
+
     final missingSkills = vacancy.requiredSkills.where((requiredSkill) {
       final required = _normalize(requiredSkill);
       return required.isNotEmpty &&
-          !candidateSkills.any((skill) => _matchesSkill(skill, required));
+          !normalizedCandidateSkills.any(
+            (skill) => _matchesSkill(skill, required),
+          );
     }).toList();
+
     if (missingSkills.isNotEmpty) {
       reasons.add('Habilidades faltantes: ${missingSkills.join(', ')}.');
     }
 
+    // 3. Nivel educativo
     final requiredLevel = _educationRank[vacancy.minEducationLevel] ?? 0;
-    final candidateLevel = _highestEducationRank(
-      candidate.resumeData['education'],
-    );
+    final String eduString = (data['education_level'] ?? '').toString();
+    int candidateLevel = _educationRank[eduString] ?? 0;
+    if (candidateLevel == 0 && data['education'] != null) {
+      candidateLevel = _highestEducationRank(data['education']);
+    }
+
     if (candidateLevel < requiredLevel) {
       reasons.add(
-        'Formación: ${_educationLabels[candidateLevel]}; se requiere ${_educationLabels[requiredLevel]}.',
+        'Formación: ${_educationLabels[candidateLevel] ?? 'no identificada'}; se requiere ${_educationLabels[requiredLevel]}.',
       );
     }
     return reasons;
