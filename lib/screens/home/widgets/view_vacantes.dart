@@ -7,6 +7,7 @@ import '../../../data/models/vacancy_model.dart';
 import '../../../data/services/candidate_service.dart';
 import '../../../data/services/vacancy_service.dart';
 import '../../../main.dart';
+import 'view_evaluacion_candidatos.dart';
 
 class ViewVacantes extends StatefulWidget {
   const ViewVacantes({super.key});
@@ -26,6 +27,8 @@ class _ViewVacantesState extends State<ViewVacantes> {
   bool _isEvaluating = false;
   int _resultTab = 0;
   String? _error;
+  Map<String, int> _conteoPostulaciones = {};
+
   bool get _isRRHH {
     final metadata = supabase.auth.currentUser?.userMetadata;
     final role = metadata?['role']?.toString().toLowerCase();
@@ -33,6 +36,8 @@ class _ViewVacantesState extends State<ViewVacantes> {
         role == 'responsable rrhh' ||
         role == 'responsable de recursos humanos';
   }
+
+  final Set<String> _postulatedVacancyIds = {};
 
   static const _educationOptions = <String, String>{
     'none': 'Sin mínimo',
@@ -58,30 +63,62 @@ class _ViewVacantesState extends State<ViewVacantes> {
       final results = await Future.wait([
         _vacancyService.fetchVacancies(),
         _candidateService.fetchCandidates(),
+        _loadPostulacionesList(),
+        _vacancyService.fetchConteoPostulaciones(),
       ]);
+
       final vacancies = results[0] as List<VacancyModel>;
       final candidates = results[1] as List<CandidateModel>;
-      VacancyModel? selected;
-      for (final vacancy in vacancies) {
-        if (vacancy.id == (preferredVacancyId ?? _selectedVacancy?.id)) {
-          selected = vacancy;
-          break;
+      final conteo = results[3] as Map<String, int>;
+
+      if (!mounted) return;
+      setState(() {
+        _vacancies = vacancies;
+        _candidates = candidates;
+        _conteoPostulaciones = conteo;
+        if (vacancies.isNotEmpty) {
+          if (preferredVacancyId != null) {
+            _selectedVacancy = vacancies.firstWhere(
+              (v) => v.id == preferredVacancyId,
+              orElse: () => vacancies.first,
+            );
+          } else if (_selectedVacancy == null ||
+              !vacancies.any((v) => v.id == _selectedVacancy?.id)) {
+            _selectedVacancy = vacancies.first;
+          }
+        } else {
+          _selectedVacancy = null;
         }
+      });
+
+      if (_selectedVacancy != null && _isRRHH) {
+        await _evaluate(_selectedVacancy!);
       }
-      selected ??= vacancies.isEmpty ? null : vacancies.first;
-      if (mounted) {
-        setState(() {
-          _vacancies = vacancies;
-          _candidates = candidates;
-          _selectedVacancy = selected;
-        });
-      }
-      if (selected != null) await _evaluate(selected);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadPostulacionesList() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final response = await supabase
+          .from('postulaciones')
+          .select('vacante_id')
+          .eq('usuario_id', userId);
+
+      if (!mounted) return;
+      setState(() {
+        _postulatedVacancyIds.clear();
+        _postulatedVacancyIds.addAll(
+          (response as List).map((row) => row['vacante_id'].toString()),
+        );
+      });
+    } catch (_) {}
   }
 
   Future<void> _evaluate(VacancyModel vacancy) async {
@@ -356,11 +393,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
     final removed = _candidates
         .where((candidate) => removedIds.contains(candidate.id))
         .toList();
-    final displayed = switch (_resultTab) {
-      1 => excluded,
-      2 => removed,
-      _ => eligible,
-    };
 
     return SizedBox(
       width: double.infinity,
@@ -375,13 +407,14 @@ class _ViewVacantesState extends State<ViewVacantes> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     const title = Text(
-                      'Vacantes y evaluación',
+                      'Vacantes disponibles',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textDark,
                       ),
                     );
+
                     final button = _isRRHH
                         ? FilledButton.icon(
                             onPressed: () => _showVacancyDialog(),
@@ -389,16 +422,19 @@ class _ViewVacantesState extends State<ViewVacantes> {
                             label: const Text('Nueva vacante'),
                           )
                         : const SizedBox.shrink();
+
                     if (constraints.maxWidth < 560) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           title,
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: button,
-                          ),
+                          if (_isRRHH) ...[
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: button,
+                            ),
+                          ],
                         ],
                       );
                     }
@@ -428,74 +464,248 @@ class _ViewVacantesState extends State<ViewVacantes> {
                 if (!_isLoading && _vacancies.isEmpty && _error == null)
                   _emptyVacancies(),
                 if (_vacancies.isNotEmpty) ...[
-                  const Text(
-                    'Selecciona una vacante',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: _vacancies.map(_vacancyChip).toList(),
-                  ),
-                  if (_selectedVacancy != null) ...[
-                    const SizedBox(height: 20),
-                    _criteriaCard(_selectedVacancy!),
+                  const SizedBox(height: 8),
 
-                    if (!_isRRHH) ...[
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            try {
-                              await _vacancyService.aplicarAVacante(
-                                _selectedVacancy!.id,
-                              );
-                              _showMessage(
-                                '¡Te has postulado a la vacante exitosamente!',
-                              );
-                            } catch (e) {
-                              _showMessage(
-                                'No se pudo completar la postulación (es posible que ya estés inscrito): $e',
-                                true,
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                  // LISTA VERTICAL DE VACANTES
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _vacancies.length,
+                    itemBuilder: (context, index) {
+                      final vacancy = _vacancies[index];
+                      final yaPostulado = _postulatedVacancyIds.contains(
+                        vacancy.id,
+                      );
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          icon: const Icon(Icons.send_outlined),
-                          label: const Text('Postularme a esta vacante'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      vacancy.title,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_isRRHH) ...[
+                                    IconButton(
+                                      tooltip: 'Editar vacante',
+                                      onPressed: () =>
+                                          _showVacancyDialog(vacancy: vacancy),
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Eliminar vacante',
+                                      onPressed: () =>
+                                          _confirmDeleteVacancy(vacancy),
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.redAccent,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _criterionChip(
+                                    Icons.work_history_outlined,
+                                    '${vacancy.minExperienceYears.toStringAsFixed(1)} años mínimo',
+                                  ),
+                                  _criterionChip(
+                                    Icons.school_outlined,
+                                    _educationOptions[vacancy
+                                            .minEducationLevel] ??
+                                        'Formación',
+                                  ),
+                                  ...vacancy.requiredSkills.map(
+                                    (skill) => _criterionChip(
+                                      Icons.verified_outlined,
+                                      skill,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              if (_isRRHH) ...[
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.lightGreenBg,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.people_alt_outlined,
+                                            size: 16,
+                                            color: AppTheme.primaryGreen,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '${_conteoPostulaciones[vacancy.id] ?? 0} postulaciones',
+                                            style: const TextStyle(
+                                              color: AppTheme.primaryGreen,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    OutlinedButton.icon(
+                                      onPressed: () {
+                                        // Navegar a tu pantalla de evaluación independiente
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ViewEvaluacionCandidatos(
+                                                  vacancy: vacancy,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.analytics_outlined,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        'Ver candidatos y filtrar',
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.textDark,
+                                        side: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+
+                              // BOTÓN INTELIGENTE DE POSTULACIÓN / CANCELACIÓN PARA USUARIOS NORMALES
+                              if (!_isRRHH) ...[
+                                const SizedBox(height: 20),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      try {
+                                        if (yaPostulado) {
+                                          await _vacancyService
+                                              .cancelarPostulacion(vacancy.id);
+                                          setState(() {
+                                            _postulatedVacancyIds.remove(
+                                              vacancy.id,
+                                            );
+                                          });
+                                          if (!context.mounted) return;
+                                          _showMessage(
+                                            'Has cancelado tu postulación exitosamente.',
+                                          );
+                                        } else {
+                                          await _vacancyService.aplicarAVacante(
+                                            vacancy.id,
+                                          );
+                                          setState(() {
+                                            _postulatedVacancyIds.add(
+                                              vacancy.id,
+                                            );
+                                          });
+                                          if (!context.mounted) return;
+                                          _showMessage(
+                                            '¡Te has postulado a la vacante exitosamente!',
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (!context.mounted) return;
+                                        _showMessage(
+                                          'No se pudo completar la solicitud: $e',
+                                          true,
+                                        );
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: yaPostulado
+                                          ? Colors.red.shade50
+                                          : AppTheme.primaryGreen,
+                                      foregroundColor: yaPostulado
+                                          ? Colors.red.shade700
+                                          : Colors.white,
+                                      elevation: yaPostulado ? 0 : 2,
+                                      side: yaPostulado
+                                          ? BorderSide(
+                                              color: Colors.red.shade200,
+                                            )
+                                          : null,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    icon: Icon(
+                                      yaPostulado
+                                          ? Icons.cancel_outlined
+                                          : Icons.send_outlined,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      yaPostulado
+                                          ? 'Cancelar postulación'
+                                          : 'Postularme a esta vacante',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ] else ...[
-                      // Si es empresa, mantiene las herramientas de evaluación y filtrado de candidatos
-                      const SizedBox(height: 20),
-                      _buildResultsHeader(
-                        eligible.length,
-                        excluded.length,
-                        removed.length,
-                      ),
-                      const SizedBox(height: 12),
-                      if (_isEvaluating)
-                        const LinearProgressIndicator(
-                          color: AppTheme.primaryGreen,
-                        ),
-                      if (!_isEvaluating && displayed.isEmpty)
-                        _emptyResults(_resultTab),
-                      ...displayed.map(
-                        (candidate) => _candidateResultCard(
-                          candidate,
-                          _evaluations[candidate.id],
-                          excluded: _resultTab == 1,
-                          removed: _resultTab == 2,
-                        ),
-                      ),
-                    ],
-                  ],
+                      );
+                    },
+                  ),
                 ],
               ],
             ),
@@ -504,86 +714,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
       ),
     );
   }
-
-  Widget _vacancyChip(VacancyModel vacancy) {
-    final selected = vacancy.id == _selectedVacancy?.id;
-    return OutlinedButton.icon(
-      onPressed: () async {
-        setState(() {
-          _selectedVacancy = vacancy;
-          _evaluations = {};
-          _resultTab = 0;
-        });
-        await _evaluate(vacancy);
-      },
-      style: OutlinedButton.styleFrom(
-        backgroundColor: selected ? AppTheme.textDark : Colors.white,
-        foregroundColor: selected ? Colors.white : AppTheme.textDark,
-        side: BorderSide(
-          color: selected ? AppTheme.textDark : Colors.grey.shade300,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      ),
-      icon: Icon(selected ? Icons.work : Icons.work_outline, size: 18),
-      label: Text(vacancy.title),
-    );
-  }
-
-  Widget _criteriaCard(VacancyModel vacancy) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.grey.shade200),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                vacancy.title,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Editar criterios',
-              onPressed: () => _showVacancyDialog(vacancy: vacancy),
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: 'Eliminar vacante',
-              onPressed: () => _confirmDeleteVacancy(vacancy),
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            ),
-          ],
-        ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _criterionChip(
-              Icons.work_history_outlined,
-              '${vacancy.minExperienceYears.toStringAsFixed(1)} años mínimo',
-            ),
-            _criterionChip(
-              Icons.school_outlined,
-              _educationOptions[vacancy.minEducationLevel] ?? 'Formación',
-            ),
-            ...vacancy.requiredSkills.map(
-              (skill) => _criterionChip(Icons.verified_outlined, skill),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
 
   Widget _criterionChip(IconData icon, String label) => Chip(
     avatar: Icon(icon, size: 17, color: AppTheme.primaryGreen),
@@ -605,7 +735,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
           const Expanded(
             child: Text(
               'Resultado del filtro',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
           TextButton.icon(
@@ -646,7 +776,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
     required bool excluded,
     required bool removed,
   }) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
+    margin: const EdgeInsets.only(top: 10),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: Colors.white,
@@ -681,32 +811,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
               if (candidate.email.isNotEmpty) ...[
                 const SizedBox(height: 3),
                 Text(candidate.email),
-              ],
-              if (excluded &&
-                  (evaluation?.exclusionReasons.isNotEmpty ?? false)) ...[
-                const SizedBox(height: 8),
-                ...evaluation!.exclusionReasons.map(
-                  (reason) => Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: Colors.red.shade700,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            reason,
-                            style: TextStyle(color: Colors.red.shade800),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ],
           ),
@@ -743,26 +847,22 @@ class _ViewVacantesState extends State<ViewVacantes> {
         : resultTab == 1
         ? 'No hay candidatos excluidos'
         : 'Ningún candidato cumple todavía',
-    resultTab == 2
-        ? 'Las personas que quites de la vacante aparecerán aquí y podrás restaurarlas.'
-        : resultTab == 1
-        ? 'Todos los candidatos registrados cumplen estos criterios.'
-        : 'Sube o completa perfiles con los datos extraídos del CV y vuelve a evaluar.',
+    'Detalle de la evaluación en curso.',
   );
 
   Widget _emptyCard(IconData icon, String title, String detail) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
     decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.grey.shade50,
+      borderRadius: BorderRadius.circular(12),
     ),
     child: Column(
       children: [
-        Icon(icon, size: 42, color: Colors.grey.shade400),
-        const SizedBox(height: 10),
+        Icon(icon, size: 36, color: Colors.grey.shade400),
+        const SizedBox(height: 8),
         Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 5),
+        const SizedBox(height: 4),
         Text(detail, textAlign: TextAlign.center),
       ],
     ),
@@ -777,7 +877,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
       borderRadius: BorderRadius.circular(12),
     ),
     child: Text(
-      'No se pudo cargar o evaluar. Aplica la migración 202610070004_create_vacantes.sql y verifica los permisos RLS. $message',
+      'No se pudo cargar o evaluar. $message',
       style: TextStyle(color: Colors.red.shade800),
     ),
   );

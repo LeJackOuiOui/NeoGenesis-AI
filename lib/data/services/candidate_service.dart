@@ -150,4 +150,33 @@ class CandidateService {
         })
         .eq('id', candidateId);
   }
+
+  Future<List<CandidateModel>> fetchPostulatedCandidates() async {
+    try {
+      final response = await client
+          .from('postulaciones')
+          .select('usuario_id, estado, fecha_postulacion, profiles(*)');
+
+      if ((response as List).isEmpty) return [];
+
+      return (response as List).map((row) {
+        final profile = Map<String, dynamic>.from(
+          row['profiles'] as Map? ?? {},
+        );
+        return CandidateModel(
+          id: profile['id']?.toString() ?? '',
+          fullName:
+              profile['nombre']?.toString() ??
+              profile['full_name']?.toString() ??
+              'Candidato Postulado',
+          email: profile['email']?.toString() ?? '',
+          phone: profile['telefono']?.toString() ?? '',
+          resumeData: {},
+          // resumeData: [],
+        );
+      }).toList();
+    } catch (e) {
+      return [];
+    }
+  }
 }

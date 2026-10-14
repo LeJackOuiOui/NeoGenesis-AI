@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
 import 'widgets/custom_sidebar.dart';
 import 'widgets/view_inicio.dart';
-import 'widgets/view_candidatos.dart';
 import 'widgets/view_vacantes.dart';
 import 'widgets/view_logs.dart'; // <--- 1. Importación de la nueva vista
 import 'widgets/view_perfil.dart';
@@ -70,15 +69,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCurrentView() {
     switch (_selectedIndex) {
+      // case 1:
+      //   return const ViewCandidatos();
       case 1:
-        return const ViewCandidatos();
-      case 2:
         return const ViewVacantes();
-      case 3:
+      case 2:
         return const ViewPerfil();
-      case 4:
+      case 3:
         return _isAdmin ? const ViewRegistros() : const ViewInicio();
-      case 5:
+      case 4:
         // 2. Renderiza ViewLogs solo si el usuario tiene rol de administrador
         return _isAdmin ? const ViewLogs() : const ViewInicio();
       case 0:
@@ -193,70 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenContext = context;
     showDialog(
       context: screenContext,
-      builder: (context) => Dialog(
-        backgroundColor: AppTheme.textDark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: Container(
-          width: 400,
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Iniciar Sesión',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Elige cómo quieres acceder a la plataforma:',
-                style: TextStyle(color: Colors.grey[400], fontSize: 13),
-              ),
-              const SizedBox(height: 24),
-              _buildModalOption(
-                icon: Icons.person_outline,
-                title: 'Iniciar Sesión (Usuario)',
-                subtitle: 'Ingresa a tu portal de usuario',
-                onTap: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: screenContext,
-                    builder: (context) => const LoginModal(),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildModalOption(
-                icon: Icons.admin_panel_settings_outlined,
-                title: 'Acceso Administrativo',
-                subtitle: 'Portal exclusivo para administradores',
-                onTap: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: screenContext,
-                    builder: (context) => const LoginModal(),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (context) => const LoginModal(),
     );
   }
 

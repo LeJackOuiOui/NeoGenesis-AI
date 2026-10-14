@@ -31,7 +31,7 @@ class CustomSidebar extends StatelessWidget {
 
   static const _items = [
     _SidebarItem(label: 'Inicio', icon: Icons.home_outlined),
-    _SidebarItem(label: 'Candidatos', icon: Icons.people_outline),
+    // _SidebarItem(label: 'Candidatos', icon: Icons.people_outline),
     _SidebarItem(label: 'Vacantes', icon: Icons.work_outline),
     _SidebarItem(label: 'Perfil', icon: Icons.person_outline),
   ];

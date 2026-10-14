@@ -225,4 +225,43 @@ class VacancyService {
         }),
     };
   }
+
+  Future<bool> usuarioYaSePostulo(String vacanteId) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return false;
+
+    final response = await client
+        .from('postulaciones')
+        .select('id')
+        .eq('vacante_id', vacanteId)
+        .eq('usuario_id', userId)
+        .maybeSingle();
+
+    return response != null;
+  }
+
+  Future<void> cancelarPostulacion(String vacanteId) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Usuario no autenticado.');
+
+    await client
+        .from('postulaciones')
+        .delete()
+        .eq('vacante_id', vacanteId)
+        .eq('usuario_id', userId);
+  }
+
+  Future<Map<String, int>> fetchConteoPostulaciones() async {
+    try {
+      final response = await client.from('postulaciones').select('vacante_id');
+      final Map<String, int> conteo = {};
+      for (var row in (response as List)) {
+        final vacanteId = row['vacante_id'].toString();
+        conteo[vacanteId] = (conteo[vacanteId] ?? 0) + 1;
+      }
+      return conteo;
+    } catch (_) {
+      return {};
+    }
+  }
 }

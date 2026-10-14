@@ -23,6 +23,7 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
   bool _isLoading = false;
   String? _busyCandidateId;
   String? _loadError;
+  final bool _showingPostulatedOnly = false;
 
   @override
   void initState() {
@@ -42,14 +43,16 @@ class _ViewCandidatosState extends State<ViewCandidatos> {
       _loadError = null;
     });
     try {
-      final candidates = await _candidateService.fetchCandidates();
+      final candidates = _showingPostulatedOnly
+          ? await _candidateService.fetchPostulatedCandidates()
+          : await _candidateService.fetchCandidates();
+
       if (!mounted) return;
       setState(() {
         _candidates
           ..clear()
           ..addAll(candidates);
       });
-      await _reevaluateVacancies(candidates);
     } catch (error) {
       if (mounted) setState(() => _loadError = error.toString());
     } finally {

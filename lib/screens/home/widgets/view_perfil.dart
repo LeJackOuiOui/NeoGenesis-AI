@@ -15,8 +15,10 @@ class _ViewPerfilState extends State<ViewPerfil> {
   String _nombre = '';
   String _correo = '';
   String _telefono = '';
-  String _cargo = '';
-  String _rol = '';
+  String _rol = 'usuario';
+  String _nit = '';
+  String _dv = '';
+  String _direccion = '';
   String? _avatarUrl;
   bool _isLoading = false;
 
@@ -26,7 +28,6 @@ class _ViewPerfilState extends State<ViewPerfil> {
     _cargarDatosPerfil();
   }
 
-  // Cargar datos desde Supabase
   Future<void> _cargarDatosPerfil() async {
     setState(() => _isLoading = true);
     try {
@@ -44,46 +45,31 @@ class _ViewPerfilState extends State<ViewPerfil> {
         _nombre = metadata['full_name']?.toString() ?? '';
         _correo = supabase.auth.currentUser?.email ?? '';
         _telefono = metadata['phone']?.toString() ?? '';
-        _cargo = metadata['position']?.toString() ?? '';
-        _rol = metadata['role']?.toString() ?? '';
+        _rol = metadata['role']?.toString().toLowerCase() ?? 'usuario';
         return;
       }
 
-      final nombre = _profileValue(data['nombre'], metadata['full_name']);
-      final correo = _profileValue(
+      _nombre = _profileValue(data['nombre'], metadata['full_name']);
+      _correo = _profileValue(
         data['email'] ?? data['correo'],
         supabase.auth.currentUser?.email,
       );
-      final telefono = _profileValue(data['telefono'], metadata['phone']);
-      final cargo = _profileValue(data['cargo'], metadata['position']);
-      final rol = _profileValue(data['role'] ?? data['rol'], metadata['role']);
+      _telefono = _profileValue(data['telefono'], metadata['phone']);
 
-      _nombre = nombre;
-      _correo = correo;
-      _telefono = telefono;
+      final rawRol = _profileValue(
+        data['role'] ?? data['rol'],
+        metadata['role'],
+      ).toLowerCase();
+      if (['empresa', 'administrador', 'admin'].contains(rawRol)) {
+        _rol = rawRol == 'admin' ? 'administrador' : rawRol;
+      } else {
+        _rol = 'usuario';
+      }
+
+      _nit = _profileValue(data['company_nit'], '');
+      _dv = _profileValue(data['company_dv'], '');
+      _direccion = _profileValue(data['company_address'], '');
       _avatarUrl = data['avatar_url'];
-      _cargo = cargo;
-      _rol = rol;
-
-      final missingProfileData = <String, dynamic>{};
-      if (_isEmpty(data['nombre']) && nombre.isNotEmpty) {
-        missingProfileData['nombre'] = nombre;
-      }
-      if (_isEmpty(data['telefono']) && telefono.isNotEmpty) {
-        missingProfileData['telefono'] = telefono;
-      }
-      if (_isEmpty(data['cargo']) && cargo.isNotEmpty) {
-        missingProfileData['cargo'] = cargo;
-      }
-      if (_isEmpty(data['role'] ?? data['rol']) && rol.isNotEmpty) {
-        missingProfileData['role'] = rol;
-      }
-      if (missingProfileData.isNotEmpty) {
-        await supabase
-            .from('profiles')
-            .update(missingProfileData)
-            .eq('id', userId);
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -100,8 +86,153 @@ class _ViewPerfilState extends State<ViewPerfil> {
     return value.isNotEmpty ? value : metadataValue?.toString().trim() ?? '';
   }
 
-  bool _isEmpty(dynamic value) =>
-      value == null || value.toString().trim().isEmpty;
+  Future<void> _mostrarModalEditar() async {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController(text: _nombre);
+    final telefonoController = TextEditingController(text: _telefono);
+    final nitController = TextEditingController(text: _nit);
+    final dvController = TextEditingController(text: _dv);
+    final direccionController = TextEditingController(text: _direccion);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Editar Perfil',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: 450,
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nombreController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre completo',
+                    ),
+                    validator: (val) => val == null || val.trim().isEmpty
+                        ? 'El nombre es obligatorio'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: telefonoController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: 'Teléfono'),
+                  ),
+                  if (_rol == 'empresa') ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextFormField(
+                            controller: nitController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'NIT'),
+                            validator: (val) {
+                              if (_rol == 'empresa' &&
+                                  (val == null || val.trim().isEmpty)) {
+                                return 'Campo requerido';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 1,
+                          child: TextFormField(
+                            controller: dvController,
+                            keyboardType: TextInputType.number,
+                            maxLength: 1,
+                            decoration: const InputDecoration(
+                              labelText: 'DV',
+                              counterText: '',
+                            ),
+                            validator: (val) {
+                              if (_rol == 'empresa' &&
+                                  (val == null || val.trim().isEmpty)) {
+                                return 'DV req.';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: direccionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Dirección física',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryGreen,
+            ),
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              try {
+                final userId = supabase.auth.currentUser?.id;
+                if (userId == null) return;
+
+                final updateData = {
+                  'nombre': nombreController.text.trim(),
+                  'telefono': telefonoController.text.trim(),
+                  if (_rol == 'empresa') ...{
+                    'company_nit': nitController.text.trim(),
+                    'company_dv': dvController.text.trim(),
+                    'company_address': direccionController.text.trim(),
+                  },
+                  'updated_at': DateTime.now().toUtc().toIso8601String(),
+                };
+
+                await supabase
+                    .from('profiles')
+                    .update(updateData)
+                    .eq('id', userId);
+
+                if (!mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Perfil actualizado correctamente'),
+                    backgroundColor: AppTheme.primaryGreen,
+                  ),
+                );
+                _cargarDatosPerfil();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error al actualizar: $e'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+            child: const Text('Guardar cambios'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,17 +252,29 @@ class _ViewPerfilState extends State<ViewPerfil> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Perfil de Usuario',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textDark,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Perfil de Usuario',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textDark,
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: _mostrarModalEditar,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                      ),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Editar Perfil'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 28),
 
-                // 1. Encabezado con Avatar desde URL
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -176,10 +319,11 @@ class _ViewPerfilState extends State<ViewPerfil> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _cargo.isEmpty ? 'Sin cargo asignado' : _cargo,
+                              'Rol: ${_rol[0].toUpperCase()}${_rol.substring(1)}',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -191,7 +335,6 @@ class _ViewPerfilState extends State<ViewPerfil> {
 
                 const SizedBox(height: 24),
 
-                // Los datos se diligencian al crear la cuenta. El administrador los edita desde el CRUD.
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -202,63 +345,51 @@ class _ViewPerfilState extends State<ViewPerfil> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LayoutBuilder(
-                        builder: (context, constraints) => Column(
-                          children: [
-                            _buildProfileItem(
-                              'Nombre completo',
-                              _nombre,
-                              Icons.person_outline,
-                            ),
-                            _buildProfileItem(
-                              'Correo electrónico',
-                              _correo,
-                              Icons.email_outlined,
-                            ),
-                            _buildProfileItem(
-                              'Cargo',
-                              _cargo,
-                              Icons.work_outline,
-                            ),
-                            _buildProfileItem(
-                              'Rol',
-                              _rol,
-                              Icons.badge_outlined,
-                            ),
-                            _buildProfileItem(
-                              'Teléfono',
-                              _telefono,
-                              Icons.phone_outlined,
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildOptionCard(
-                                    Icons.lock_outline,
-                                    'Seguridad',
-                                    'Cambiar contraseña',
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildOptionCard(
-                                    Icons.notifications_none,
-                                    'Notificaciones',
-                                    'Preferencias de avisos',
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildOptionCard(
-                              Icons.help_outline,
-                              'Centro de ayuda',
-                              'Soporte de la plataforma',
-                            ),
-                          ],
-                        ),
+                      _buildProfileItem(
+                        'Nombre completo',
+                        _nombre,
+                        Icons.person_outline,
                       ),
+                      _buildProfileItem(
+                        'Correo electrónico',
+                        _correo,
+                        Icons.email_outlined,
+                      ),
+                      _buildProfileItem(
+                        'Rol',
+                        _rol[0].toUpperCase() + _rol.substring(1),
+                        Icons.badge_outlined,
+                      ),
+                      _buildProfileItem(
+                        'Teléfono',
+                        _telefono.isEmpty ? 'No registrado' : _telefono,
+                        Icons.phone_outlined,
+                      ),
+
+                      if (_rol == 'empresa') ...[
+                        const Divider(height: 32),
+                        const Text(
+                          'Información Corporativa',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildProfileItem(
+                          'NIT',
+                          _nit.isEmpty
+                              ? 'No registrado'
+                              : '${_nit}${_dv.isNotEmpty ? ' - $_dv' : ''}',
+                          Icons.business_outlined,
+                        ),
+                        _buildProfileItem(
+                          'Dirección',
+                          _direccion.isEmpty ? 'No registrada' : _direccion,
+                          Icons.location_on_outlined,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -271,77 +402,41 @@ class _ViewPerfilState extends State<ViewPerfil> {
   }
 
   Widget _buildProfileItem(String label, String value, IconData icon) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: AppTheme.textDark,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppTheme.primaryGreen, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(color: AppTheme.textDark),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOptionCard(IconData icon, String title, String subtitle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.lightGreenBg.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppTheme.primaryGreen.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppTheme.primaryGreen),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: AppTheme.textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textDark,
+                Icon(icon, color: AppTheme.primaryGreen, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    value,
+                    style: const TextStyle(color: AppTheme.textDark),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppTheme.primaryGreen),
         ],
       ),
     );
