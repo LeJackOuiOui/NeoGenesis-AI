@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../profile/recruiter_availability.dart';
 
 class ViewPerfil extends StatefulWidget {
   const ViewPerfil({super.key});
@@ -391,6 +392,68 @@ class _ViewPerfilState extends State<ViewPerfil> {
                           'Dirección',
                           _direccion.isEmpty ? 'No registrada' : _direccion,
                           Icons.location_on_outlined,
+                        ),
+                      ],
+                      if (_rol == 'empresa' || _rol == 'administrador') ...[
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Gestión de Reclutamiento',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    side: const BorderSide(
+                                      color: AppTheme.primaryGreen,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.schedule,
+                                    color: AppTheme.primaryGreen,
+                                  ),
+                                  label: const Text(
+                                    'Configurar mi Disponibilidad de Entrevistas',
+                                    style: TextStyle(
+                                      color: AppTheme.primaryGreen,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    // Navegar hacia la pantalla de disponibilidad que creamos antes
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const RecruiterAvailabilityScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ],

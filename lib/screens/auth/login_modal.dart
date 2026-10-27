@@ -23,7 +23,7 @@ class _LoginModalState extends State<LoginModal> {
   late final AuditService _auditService;
 
   bool _isEmpresa = false; // Toggle: false = Usuario, true = Empresa
-  bool _rememberMe = false;
+  final bool _rememberMe = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
 
