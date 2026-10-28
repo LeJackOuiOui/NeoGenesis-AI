@@ -219,7 +219,7 @@ class _ViewMiCvState extends State<ViewMiCv> {
                               ),
                               const SizedBox(height: 16),
                               DropdownButtonFormField<String>(
-                                value:
+                                initialValue:
                                     _educationOptions.containsKey(
                                       _educationLevel,
                                     )
@@ -237,8 +237,9 @@ class _ViewMiCvState extends State<ViewMiCv> {
                                     )
                                     .toList(),
                                 onChanged: (val) {
-                                  if (val != null)
+                                  if (val != null) {
                                     setState(() => _educationLevel = val);
+                                  }
                                 },
                               ),
                               const SizedBox(height: 16),

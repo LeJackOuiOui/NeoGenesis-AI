@@ -6,6 +6,7 @@ class VacancyModel {
   final String minEducationLevel;
   final List<String> removedCandidateIds;
   final String companyVerificationStatus;
+  final String createdBy;
 
   const VacancyModel({
     required this.id,
@@ -15,6 +16,7 @@ class VacancyModel {
     required this.minEducationLevel,
     this.removedCandidateIds = const [],
     this.companyVerificationStatus = 'pending',
+    this.createdBy = '',
   });
 
   factory VacancyModel.fromMap(Map<String, dynamic> map) => VacancyModel(
@@ -34,6 +36,7 @@ class VacancyModel {
         : const [],
     companyVerificationStatus:
         map['company_verification_status']?.toString() ?? 'pending',
+    createdBy: map['created_by']?.toString() ?? '',
   );
 
   Map<String, dynamic> toCriteriaMap() => {

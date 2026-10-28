@@ -8,6 +8,7 @@ import '../../../data/services/candidate_service.dart';
 import '../../../data/services/vacancy_service.dart';
 import '../../../main.dart';
 import 'view_evaluacion_candidatos.dart';
+import 'view_horarios.dart';
 
 class ViewVacantes extends StatefulWidget {
   const ViewVacantes({super.key});
@@ -37,7 +38,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
         role == 'responsable de recursos humanos';
   }
 
-  final Set<String> _postulatedVacancyIds = {};
+  final Map<String, String> _postulacionEstados = {};
 
   static const _educationOptions = <String, String>{
     'none': 'Sin mínimo',
@@ -108,15 +109,19 @@ class _ViewVacantesState extends State<ViewVacantes> {
     try {
       final response = await supabase
           .from('postulaciones')
-          .select('vacante_id')
+          .select('vacante_id, estado')
           .eq('usuario_id', userId);
 
       if (!mounted) return;
       setState(() {
-        _postulatedVacancyIds.clear();
-        _postulatedVacancyIds.addAll(
-          (response as List).map((row) => row['vacante_id'].toString()),
-        );
+        _postulacionEstados.clear();
+        for (var row in (response as List)) {
+          final vacanteId = row['vacante_id']?.toString();
+          final estado = row['estado']?.toString() ?? 'enviada';
+          if (vacanteId != null) {
+            _postulacionEstados[vacanteId] = estado;
+          }
+        }
       });
     } catch (_) {}
   }
@@ -473,9 +478,9 @@ class _ViewVacantesState extends State<ViewVacantes> {
                     itemCount: _vacancies.length,
                     itemBuilder: (context, index) {
                       final vacancy = _vacancies[index];
-                      final yaPostulado = _postulatedVacancyIds.contains(
-                        vacancy.id,
-                      );
+                      final estadoPostulacion = _postulacionEstados[vacancy.id];
+                      final yaPostulado = estadoPostulacion != null;
+                      final esAceptada = estadoPostulacion == 'aceptada';
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
@@ -568,6 +573,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                 ],
                               ),
 
+                              // SECCIÓN EXCLUSIVA PARA RRHH (Empresa)
                               if (_isRRHH) ...[
                                 const SizedBox(height: 16),
                                 Row(
@@ -604,7 +610,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                     const Spacer(),
                                     OutlinedButton.icon(
                                       onPressed: () {
-                                        // Navegar a tu pantalla de evaluación independiente
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
                                             builder: (context) =>
@@ -632,85 +637,137 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                 ),
                               ],
 
-                              // BOTÓN INTELIGENTE DE POSTULACIÓN / CANCELACIÓN PARA USUARIOS NORMALES
+                              // SECCIÓN EXCLUSIVA PARA CANDIDATOS (!isRRHH)
                               if (!_isRRHH) ...[
                                 const SizedBox(height: 20),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      try {
-                                        if (yaPostulado) {
-                                          await _vacancyService
-                                              .cancelarPostulacion(vacancy.id);
-                                          setState(() {
-                                            _postulatedVacancyIds.remove(
-                                              vacancy.id,
-                                            );
-                                          });
-                                          if (!context.mounted) return;
-                                          _showMessage(
-                                            'Has cancelado tu postulación exitosamente.',
-                                          );
-                                        } else {
-                                          await _vacancyService.aplicarAVacante(
-                                            vacancy.id,
-                                          );
-                                          setState(() {
-                                            _postulatedVacancyIds.add(
-                                              vacancy.id,
-                                            );
-                                          });
-                                          if (!context.mounted) return;
-                                          _showMessage(
-                                            '¡Te has postulado a la vacante exitosamente!',
-                                          );
-                                        }
-                                      } catch (e) {
-                                        if (!context.mounted) return;
-                                        _showMessage(
-                                          'No se pudo completar la solicitud: $e',
-                                          true,
+                                if (esAceptada) ...[
+                                  // BOTÓN PARA AGENDAR ENTREVISTA (CUANDO FUE ACEPTADO)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                CandidateScheduleSelectionScreen(
+                                                  vacancyId: vacancy.id,
+                                                  recruiterId:
+                                                      vacancy.createdBy ?? '',
+                                                  candidateId: supabase
+                                                      .auth
+                                                      .currentUser!
+                                                      .id,
+                                                ),
+                                          ),
                                         );
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: yaPostulado
-                                          ? Colors.red.shade50
-                                          : AppTheme.primaryGreen,
-                                      foregroundColor: yaPostulado
-                                          ? Colors.red.shade700
-                                          : Colors.white,
-                                      elevation: yaPostulado ? 0 : 2,
-                                      side: yaPostulado
-                                          ? BorderSide(
-                                              color: Colors.red.shade200,
-                                            )
-                                          : null,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primaryGreen,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
+                                      icon: const Icon(
+                                        Icons.event_available,
+                                        size: 18,
                                       ),
-                                    ),
-                                    icon: Icon(
-                                      yaPostulado
-                                          ? Icons.cancel_outlined
-                                          : Icons.send_outlined,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      yaPostulado
-                                          ? 'Cancelar postulación'
-                                          : 'Postularme a esta vacante',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                      label: const Text(
+                                        '¡Postulación Aceptada! Agendar Entrevista',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
+                                ] else ...[
+                                  // BOTÓN NORMAL DE POSTULACIÓN / CANCELACIÓN
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () async {
+                                        try {
+                                          if (yaPostulado) {
+                                            await _vacancyService
+                                                .cancelarPostulacion(
+                                                  vacancy.id,
+                                                );
+                                            setState(() {
+                                              _postulacionEstados.remove(
+                                                vacancy.id,
+                                              );
+                                            });
+                                            if (!context.mounted) return;
+                                            _showMessage(
+                                              'Has cancelado tu postulación exitosamente.',
+                                            );
+                                          } else {
+                                            await _vacancyService
+                                                .aplicarAVacante(vacancy.id);
+                                            setState(() {
+                                              _postulacionEstados[vacancy.id] =
+                                                  'enviada';
+                                            });
+                                            if (!context.mounted) return;
+                                            _showMessage(
+                                              '¡Te has postulado a la vacante exitosamente!',
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (!context.mounted) return;
+                                          _showMessage(
+                                            'No se pudo completar la solicitud: $e',
+                                            true,
+                                          );
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: yaPostulado
+                                            ? Colors.red.shade50
+                                            : AppTheme.primaryGreen,
+                                        foregroundColor: yaPostulado
+                                            ? Colors.red.shade700
+                                            : Colors.white,
+                                        elevation: yaPostulado ? 0 : 2,
+                                        side: yaPostulado
+                                            ? BorderSide(
+                                                color: Colors.red.shade200,
+                                              )
+                                            : null,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: Icon(
+                                        yaPostulado
+                                            ? Icons.cancel_outlined
+                                            : Icons.send_outlined,
+                                        size: 18,
+                                      ),
+                                      label: Text(
+                                        yaPostulado
+                                            ? 'Cancelar postulación (En revisión)'
+                                            : 'Postularme a esta vacante',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ],
                           ),
@@ -735,131 +792,10 @@ class _ViewVacantesState extends State<ViewVacantes> {
     visualDensity: VisualDensity.compact,
   );
 
-  Widget _buildResultsHeader(
-    int eligibleCount,
-    int excludedCount,
-    int removedCount,
-  ) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        children: [
-          const Expanded(
-            child: Text(
-              'Resultado del filtro',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: _selectedVacancy == null || _isEvaluating
-                ? null
-                : () => _evaluate(_selectedVacancy!),
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Reevaluar'),
-          ),
-        ],
-      ),
-      Wrap(
-        spacing: 8,
-        children: [
-          ChoiceChip(
-            label: Text('Cumplen ($eligibleCount)'),
-            selected: _resultTab == 0,
-            onSelected: (_) => setState(() => _resultTab = 0),
-          ),
-          ChoiceChip(
-            label: Text('Excluidos ($excludedCount)'),
-            selected: _resultTab == 1,
-            onSelected: (_) => setState(() => _resultTab = 1),
-          ),
-          ChoiceChip(
-            label: Text('Quitados ($removedCount)'),
-            selected: _resultTab == 2,
-            onSelected: (_) => setState(() => _resultTab = 2),
-          ),
-        ],
-      ),
-    ],
-  );
-
-  Widget _candidateResultCard(
-    CandidateModel candidate,
-    CandidateEvaluation? evaluation, {
-    required bool excluded,
-    required bool removed,
-  }) => Container(
-    margin: const EdgeInsets.only(top: 10),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.grey.shade200),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          backgroundColor: removed || excluded
-              ? Colors.red.shade50
-              : AppTheme.lightGreenBg,
-          foregroundColor: removed || excluded
-              ? Colors.red.shade700
-              : AppTheme.primaryGreen,
-          child: Text(
-            candidate.fullName.isEmpty
-                ? '?'
-                : candidate.fullName[0].toUpperCase(),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                candidate.fullName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              if (candidate.email.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(candidate.email),
-              ],
-            ],
-          ),
-        ),
-        IconButton(
-          tooltip: removed
-              ? 'Restaurar en esta vacante'
-              : 'Quitar de esta vacante',
-          onPressed: () =>
-              _confirmRemoveCandidate(candidate, isRemoved: removed),
-          icon: Icon(
-            removed ? Icons.person_add_alt_1 : Icons.person_remove_outlined,
-            color: removed ? AppTheme.primaryGreen : Colors.redAccent,
-          ),
-        ),
-      ],
-    ),
-  );
-
   Widget _emptyVacancies() => _emptyCard(
     Icons.work_outline,
     'Aún no hay vacantes',
     'Crea una vacante para definir experiencia, habilidades y formación mínimas.',
-  );
-
-  Widget _emptyResults(int resultTab) => _emptyCard(
-    resultTab == 2
-        ? Icons.person_remove_outlined
-        : resultTab == 1
-        ? Icons.verified_outlined
-        : Icons.person_search_outlined,
-    resultTab == 2
-        ? 'No hay personas quitadas de esta vacante'
-        : resultTab == 1
-        ? 'No hay candidatos excluidos'
-        : 'Ningún candidato cumple todavía',
-    'Detalle de la evaluación en curso.',
   );
 
   Widget _emptyCard(IconData icon, String title, String detail) => Container(

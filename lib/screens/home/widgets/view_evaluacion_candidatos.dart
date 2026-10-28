@@ -22,6 +22,8 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
 
   List<CandidateModel> _candidates = [];
   Map<String, CandidateEvaluation> _evaluations = {};
+  Map<String, String> _candidatePostulationMap = {};
+  Map<String, String> _candidateEstadoMap = {};
   bool _isLoading = true;
   int _resultTab = 0; // 0: Cumplen, 1: Excluidos, 2: Quitados
 
@@ -35,7 +37,34 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
     setState(() => _isLoading = true);
     try {
       // 1. Cargar postulados de la vacante
-      final candidates = await _candidateService.fetchPostulatedCandidates();
+      final rawCandidatesData = await _vacancyService
+          .fetchCandidatesWithPostulationId(widget.vacancy.id);
+
+      List<CandidateModel> candidates = [];
+      Map<String, String> candidatePostulationMap = {};
+      Map<String, String> candidateEstadoMap = {};
+
+      for (var data in rawCandidatesData) {
+        final postulacionId = data['postulacion_id']?.toString();
+        final estado = data['estado_postulacion']?.toString() ?? 'enviada';
+
+        final candidateMap = {
+          'id': data['id'],
+          'full_name': data['full_name'],
+          'email': data['email'],
+          'phone': data['phone'],
+          'resume_data': data['resume_data'],
+          'created_by': data['created_by'],
+        };
+
+        final candidate = CandidateModel.fromMap(candidateMap);
+        candidates.add(candidate);
+
+        if (postulacionId != null) {
+          candidatePostulationMap[candidate.id] = postulacionId;
+          candidateEstadoMap[candidate.id] = estado;
+        }
+      }
 
       // 2. Ejecutar la evaluación con los criterios de esta vacante
       final evaluations = await _vacancyService.evaluateCandidates(
@@ -47,9 +76,12 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
       setState(() {
         _candidates = candidates;
         _evaluations = evaluations;
+        _candidatePostulationMap = candidatePostulationMap;
+        _candidateEstadoMap = candidateEstadoMap;
       });
     } catch (e) {
-      // Manejo de error si aplica
+      print('Error al cargar y evaluar candidatos: $e');
+      print(StackTrace.current);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -147,12 +179,15 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                       itemBuilder: (context, index) {
                         final candidate = displayed[index];
                         final eval = _evaluations[candidate.id];
+                        final isEligibleTab = _resultTab == 0;
+                        final postulacionId =
+                            _candidatePostulationMap[candidate.id];
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: _resultTab == 0
+                              backgroundColor: isEligibleTab
                                   ? AppTheme.lightGreenBg
                                   : Colors.red.shade50,
                               child: Text(
@@ -162,12 +197,91 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                               ),
                             ),
                             title: Text(candidate.fullName),
-                            subtitle: Text(
-                              eval?.meetsCriteria == true
-                                  ? 'Cumple con los requisitos'
-                                  : (eval?.exclusionReasons.join(', ') ??
-                                        'No cumple criterios'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  eval?.meetsCriteria == true
+                                      ? 'Cumple con los requisitos'
+                                      : (eval?.exclusionReasons.join(', ') ??
+                                            'No cumple criterios'),
+                                ),
+                                Text(
+                                  'Estado: ${_candidateEstadoMap[candidate.id] ?? 'enviada'}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
                             ),
+                            trailing: isEligibleTab
+                                ? (_candidateEstadoMap[candidate.id] ==
+                                          'aceptada'
+                                      ? const Chip(
+                                          avatar: Icon(
+                                            Icons.check_circle,
+                                            color: AppTheme.primaryGreen,
+                                            size: 16,
+                                          ),
+                                          label: Text(
+                                            'Aceptado',
+                                            style: TextStyle(
+                                              color: AppTheme.primaryGreen,
+                                            ),
+                                          ),
+                                          backgroundColor:
+                                              AppTheme.lightGreenBg,
+                                        )
+                                      : FilledButton.icon(
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.primaryGreen,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.check,
+                                            size: 16,
+                                          ),
+                                          label: const Text('Aceptar'),
+                                          onPressed: postulacionId == null
+                                              ? null
+                                              : () async {
+                                                  try {
+                                                    await _vacancyService
+                                                        .actualizarEstadoPostulacion(
+                                                          postulacionId,
+                                                          'aceptada',
+                                                        );
+
+                                                    if (!mounted) return;
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'Candidato aceptado. Ahora podrá agendar su entrevista.',
+                                                        ),
+                                                        backgroundColor:
+                                                            AppTheme
+                                                                .primaryGreen,
+                                                      ),
+                                                    );
+
+                                                    _loadAndEvaluate();
+                                                  } catch (e) {
+                                                    if (!mounted) return;
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                          'Error al aceptar candidato: $e',
+                                                        ),
+                                                        backgroundColor:
+                                                            Colors.redAccent,
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                        ))
+                                : null,
                           ),
                         );
                       },
