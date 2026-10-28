@@ -385,7 +385,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
                           'NIT',
                           _nit.isEmpty
                               ? 'No registrado'
-                              : '${_nit}${_dv.isNotEmpty ? ' - $_dv' : ''}',
+                              : '$_nit${_dv.isNotEmpty ? ' - $_dv' : ''}',
                           Icons.business_outlined,
                         ),
                         _buildProfileItem(
