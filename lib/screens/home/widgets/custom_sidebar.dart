@@ -134,6 +134,15 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               2,
                             ),
+                          if (!isAdmin && !isRRHH)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Asistente RRHH',
+                                icon: Icons.support_agent_outlined,
+                              ),
+                              4,
+                            ),
 
                           // Perfil (Índice 3 para usuarios normales, Índice 2 para empresas/admins)
                           _buildNavigationItem(
@@ -160,6 +169,15 @@ class CustomSidebar extends StatelessWidget {
                                 icon: Icons.terminal_outlined,
                               ),
                               5,
+                            ),
+                          if (isAdmin || isRRHH)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Consultas a RRHH',
+                                icon: Icons.mark_unread_chat_alt_outlined,
+                              ),
+                              6,
                             ),
 
                           const Spacer(),
