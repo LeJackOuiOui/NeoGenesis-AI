@@ -95,6 +95,42 @@ void main() {
         isEmpty,
       );
     });
+
+    test('calcula el score proporcional de los criterios de la vacante', () {
+      final candidate = _candidate({
+        'experience_years': 2,
+        'skills': ['Dart'],
+        'education_level': 'bachelor',
+      });
+
+      expect(
+        CandidateCriteriaEvaluator.scoreFor(
+          candidate,
+          _vacancy(
+            minExperienceYears: 4,
+            requiredSkills: ['Dart', 'Flutter'],
+            minEducationLevel: 'bachelor',
+          ),
+        ),
+        closeTo(66.6667, 0.001),
+      );
+    });
+
+    test('calcula experiencia desde el historial laboral', () {
+      final candidate = _candidate({
+        'experience': [
+          {'start_date': '2022-01', 'end_date': '2023-12'},
+        ],
+      });
+
+      expect(
+        CandidateCriteriaEvaluator.scoreFor(
+          candidate,
+          _vacancy(minExperienceYears: 2),
+        ),
+        100,
+      );
+    });
   });
 }
 

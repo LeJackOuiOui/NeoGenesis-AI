@@ -5,6 +5,7 @@ class CandidateModel {
   final String fullName;
   final String email;
   final String? phone;
+  final String? profilePosition;
   final Map<String, dynamic> resumeData;
   final Map<String, dynamic>? latestResume;
 
@@ -15,6 +16,7 @@ class CandidateModel {
     required this.phone,
     required this.resumeData,
     this.latestResume,
+    this.profilePosition,
   });
 
   factory CandidateModel.fromMap(Map<String, dynamic> map) {
@@ -37,6 +39,7 @@ class CandidateModel {
       fullName: map['full_name']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       phone: map['phone']?.toString(),
+      profilePosition: (map['cargo'] ?? map['position'])?.toString(),
       resumeData: parsedResume,
     );
   }

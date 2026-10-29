@@ -7,6 +7,7 @@ class CustomSidebar extends StatelessWidget {
   final bool isLoggedIn;
   final bool isAdmin;
   final bool isRRHH;
+  final bool isRecruiter;
   final ValueChanged<int> onNavigationSelected;
   final ValueChanged<bool> onHoverChanged;
   final VoidCallback onToggle;
@@ -21,6 +22,7 @@ class CustomSidebar extends StatelessWidget {
     required this.isLoggedIn,
     this.isAdmin = false,
     this.isRRHH = false,
+    this.isRecruiter = false,
     required this.onNavigationSelected,
     required this.onHoverChanged,
     required this.onToggle,
@@ -134,6 +136,15 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               2,
                             ),
+                          if (!isAdmin && !isRRHH)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Asistente RRHH',
+                                icon: Icons.support_agent_outlined,
+                              ),
+                              4,
+                            ),
 
                           // Perfil (Índice 3 para usuarios normales, Índice 2 para empresas/admins)
                           _buildNavigationItem(
@@ -160,6 +171,24 @@ class CustomSidebar extends StatelessWidget {
                                 icon: Icons.terminal_outlined,
                               ),
                               5,
+                            ),
+                          if (isAdmin || isRRHH)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Consultas a RRHH',
+                                icon: Icons.mark_unread_chat_alt_outlined,
+                              ),
+                              6,
+                            ),
+                          if (isAdmin || isRRHH || isRecruiter)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Reporte de candidatos',
+                                icon: Icons.assessment_outlined,
+                              ),
+                              7,
                             ),
 
                           const Spacer(),

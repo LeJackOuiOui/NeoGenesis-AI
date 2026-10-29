@@ -30,12 +30,7 @@ class CandidateCriteriaEvaluator {
     final reasons = <String>[];
     final data = candidate.resumeData;
 
-    // 1. Experiencia leída de la nueva estructura plana o de respaldo
-    final double experienceYears =
-        (data['experience_years'] as num?)?.toDouble() ??
-        (data['experience'] is num
-            ? (data['experience'] as num).toDouble()
-            : 0.0);
+    final experienceYears = _candidateExperienceYears(data);
 
     if (experienceYears + 0.0001 < vacancy.minExperienceYears) {
       reasons.add(
@@ -44,20 +39,9 @@ class CandidateCriteriaEvaluator {
     }
 
     // 2. Habilidades (soporta tanto listas como texto separado por comas)
-    List<String> candidateSkills = [];
-    if (data['skills'] is List) {
-      candidateSkills = _asStringList(data['skills']);
-    } else if (data['skills'] is String) {
-      candidateSkills = (data['skills'] as String)
-          .split(',')
-          .map((s) => s.trim())
-          .toList();
-    }
-
-    final normalizedCandidateSkills = candidateSkills
-        .map(_normalize)
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final normalizedCandidateSkills = _candidateSkills(
+      data,
+    ).map(_normalize).where((s) => s.isNotEmpty).toList();
 
     final missingSkills = vacancy.requiredSkills.where((requiredSkill) {
       final required = _normalize(requiredSkill);
@@ -86,6 +70,72 @@ class CandidateCriteriaEvaluator {
     }
     return reasons;
   }
+
+  static double scoreFor(CandidateModel candidate, VacancyModel vacancy) {
+    final data = candidate.resumeData;
+    final criterionScores = <double>[];
+
+    if (vacancy.minExperienceYears > 0) {
+      criterionScores.add(
+        (_candidateExperienceYears(data) / vacancy.minExperienceYears).clamp(
+          0.0,
+          1.0,
+        ),
+      );
+    }
+
+    final requiredSkills = vacancy.requiredSkills
+        .map(_normalize)
+        .where((skill) => skill.isNotEmpty)
+        .toList();
+    if (requiredSkills.isNotEmpty) {
+      final candidateSkills = _candidateSkills(
+        data,
+      ).map(_normalize).where((skill) => skill.isNotEmpty).toList();
+      final matchedSkills = requiredSkills
+          .where(
+            (required) => candidateSkills.any(
+              (candidateSkill) => _matchesSkill(candidateSkill, required),
+            ),
+          )
+          .length;
+      criterionScores.add(matchedSkills / requiredSkills.length);
+    }
+
+    final requiredEducation = _educationRank[vacancy.minEducationLevel] ?? 0;
+    if (requiredEducation > 0) {
+      final educationText = (data['education_level'] ?? '').toString();
+      var candidateEducation = _educationRank[educationText] ?? 0;
+      if (candidateEducation == 0 && data['education'] != null) {
+        candidateEducation = _highestEducationRank(data['education']);
+      }
+      criterionScores.add(
+        (candidateEducation / requiredEducation).clamp(0.0, 1.0),
+      );
+    }
+
+    if (criterionScores.isEmpty) return 100;
+    return criterionScores.reduce((total, score) => total + score) /
+        criterionScores.length *
+        100;
+  }
+
+  static List<String> _candidateSkills(Map<String, dynamic> data) {
+    if (data['skills'] is List) return _asStringList(data['skills']);
+    if (data['skills'] is String) {
+      return (data['skills'] as String)
+          .split(',')
+          .map((skill) => skill.trim())
+          .toList();
+    }
+    return const [];
+  }
+
+  static double _candidateExperienceYears(Map<String, dynamic> data) =>
+      (data['experience_years'] as num?)?.toDouble() ??
+      (data['experience'] is num
+          ? (data['experience'] as num).toDouble()
+          : _experienceYears(data['experience']));
 
   static bool _matchesSkill(String candidateSkill, String requiredSkill) {
     if (candidateSkill == requiredSkill) return true;
