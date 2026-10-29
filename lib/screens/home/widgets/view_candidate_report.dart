@@ -5,8 +5,8 @@ import 'package:file_saver/file_saver.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/excel_file_builder.dart';
 import '../../../data/models/candidate_model.dart';
 import '../../../data/models/candidate_report_item.dart';
 import '../../../data/models/vacancy_model.dart';
@@ -165,10 +165,7 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
   Future<void> _exportExcel() async {
     if (_items.isEmpty) return;
     setState(() => _isExporting = true);
-    final workbook = xlsio.Workbook();
     try {
-      final sheet = workbook.worksheets[0];
-      sheet.name = 'Candidatos';
       final headers = [
         'Vacante',
         'Candidato',
@@ -179,29 +176,10 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
         'Estado',
         'Registro del perfil',
       ];
-      for (var column = 0; column < headers.length; column++) {
-        sheet.getRangeByIndex(1, column + 1).setText(headers[column]);
-      }
-      sheet.getRangeByIndex(1, 1, 1, headers.length).cellStyle.bold = true;
-      for (var row = 0; row < _items.length; row++) {
-        final item = _items[row];
-        final candidate = item.candidate;
-        final values = [
-          item.vacancyTitle,
-          candidate?.fullName ?? 'Perfil no disponible',
-          candidate?.email ?? '',
-          candidate?.phone ?? '',
-          _profileSummary(candidate),
-          item.score == null ? 'N/D' : '${item.score!.toStringAsFixed(0)}%',
-          _statusLabel(item.status),
-          _formatDate(item.candidateRegisteredAt),
-        ];
-        for (var column = 0; column < values.length; column++) {
-          sheet.getRangeByIndex(row + 2, column + 1).setText(values[column]);
-        }
-      }
-
-      final bytes = workbook.saveAsStream();
+      final bytes = ExcelFileBuilder.build(
+        headers: headers,
+        rows: _items.map(_excelRow).toList(),
+      );
       await FileSaver.instance.saveFile(
         name: 'reporte_candidatos',
         bytes: Uint8List.fromList(bytes),
@@ -221,9 +199,22 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
         ),
       );
     } finally {
-      workbook.dispose();
       if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  List<String> _excelRow(CandidateReportItem item) {
+    final candidate = item.candidate;
+    return [
+      item.vacancyTitle,
+      candidate?.fullName ?? 'Perfil no disponible',
+      candidate?.email ?? '',
+      candidate?.phone ?? '',
+      _profileSummary(candidate),
+      item.score == null ? 'N/D' : '${item.score!.toStringAsFixed(0)}%',
+      _statusLabel(item.status),
+      _formatDate(item.candidateRegisteredAt),
+    ];
   }
 
   List<String> _pdfRow(CandidateReportItem item) {

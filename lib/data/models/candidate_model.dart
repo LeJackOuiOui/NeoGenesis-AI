@@ -8,6 +8,11 @@ class CandidateModel {
   final String? profilePosition;
   final Map<String, dynamic> resumeData;
   final Map<String, dynamic>? latestResume;
+  final String? resumeBucketId;
+  final String? resumeObjectPath;
+  final String? resumeOriginalFilename;
+  final String? resumeContentType;
+  final DateTime? createdAt;
 
   const CandidateModel({
     required this.id,
@@ -17,6 +22,11 @@ class CandidateModel {
     required this.resumeData,
     this.latestResume,
     this.profilePosition,
+    this.resumeBucketId,
+    this.resumeObjectPath,
+    this.resumeOriginalFilename,
+    this.resumeContentType,
+    this.createdAt,
   });
 
   factory CandidateModel.fromMap(Map<String, dynamic> map) {
@@ -41,6 +51,11 @@ class CandidateModel {
       phone: map['phone']?.toString(),
       profilePosition: (map['cargo'] ?? map['position'])?.toString(),
       resumeData: parsedResume,
+      resumeBucketId: map['resume_bucket_id']?.toString(),
+      resumeObjectPath: map['resume_object_path']?.toString(),
+      resumeOriginalFilename: map['resume_original_filename']?.toString(),
+      resumeContentType: map['resume_content_type']?.toString(),
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? ''),
     );
   }
 }

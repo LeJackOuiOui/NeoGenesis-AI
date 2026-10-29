@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/services/recruiter_availability_service.dart';
 
 class RecruiterAvailabilityScreen extends StatefulWidget {
-  const RecruiterAvailabilityScreen({Key? key}) : super(key: key);
+  const RecruiterAvailabilityScreen({super.key});
 
   @override
   State<RecruiterAvailabilityScreen> createState() =>

@@ -42,7 +42,7 @@ packages:
     source: hosted
     version: "1.0.4"
   archive:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: archive
       sha256: "0d58d1fa1fddf6588251ccf2819f3fb3b6d0452c1b2813ac7413a05592bfbefe"
@@ -328,22 +328,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.12.0"
-  intl:
-    dependency: transitive
-    description:
-      name: intl
-      sha256: "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.20.3"
-  jiffy:
-    dependency: transitive
-    description:
-      name: jiffy
-      sha256: cabced5ddea4612f5e0c498df065ee8a1bd810f7ed757db910e95d2aba80161d
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.4.5"
   jni:
     dependency: transitive
     description:
@@ -624,14 +608,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
-  quiver:
-    dependency: transitive
-    description:
-      name: quiver
-      sha256: ea0b925899e64ecdfbf9c7becb60d5b50e706ade44a85b2363be2a22d88117d2
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.2.2"
   realtime_client:
     dependency: transitive
     description:
@@ -773,30 +749,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.17.2"
-  syncfusion_flutter_core:
-    dependency: transitive
-    description:
-      name: syncfusion_flutter_core
-      sha256: "366faa4c374fdc0a789eb1d234c78ddbaca34ae575fe8a6481f9f72db5eb0d69"
-      url: "https://pub.dev"
-    source: hosted
-    version: "35.1.42"
-  syncfusion_flutter_xlsio:
-    dependency: "direct main"
-    description:
-      name: syncfusion_flutter_xlsio
-      sha256: "24c7dd074db00943da15627f3516385cd49e2ec6ea63dbe767bd0d616e458439"
-      url: "https://pub.dev"
-    source: hosted
-    version: "35.1.42"
-  syncfusion_officecore:
-    dependency: transitive
-    description:
-      name: syncfusion_officecore
-      sha256: "43b5c8c47b17dea963f869f8ddd11612f61a71162f71f3bcfd9cd570098b834c"
-      url: "https://pub.dev"
-    source: hosted
-    version: "35.1.42"
   term_glyph:
     dependency: transitive
     description:
