@@ -181,4 +181,50 @@ class CandidateService {
       return [];
     }
   }
+
+  Future<List<CandidateModel>> filtrarCandidatos({
+    String? habilidadBuscada,
+    String? nivelEducacion,
+    double? minExperiencia,
+  }) async {
+    final candidates = await fetchCandidates();
+
+    return candidates.where((candidate) {
+      final resumeData = candidate.resumeData;
+      if (resumeData == null) return false;
+
+      // 1. Filtrar por Habilidades (skills)
+      if (habilidadBuscada != null && habilidadBuscada.trim().isNotEmpty) {
+        final skills =
+            (resumeData['skills'] as List?)
+                ?.map((s) => s.toString().toLowerCase())
+                .toList() ??
+            [];
+        final query = habilidadBuscada.toLowerCase().trim();
+        if (!skills.any((s) => s.contains(query))) {
+          return false;
+        }
+      }
+
+      // 2. Filtrar por Nivel de Educación (education_level)
+      if (nivelEducacion != null && nivelEducacion.trim().isNotEmpty) {
+        final eduLevel =
+            resumeData['education_level']?.toString().toLowerCase() ?? '';
+        if (eduLevel != nivelEducacion.toLowerCase().trim()) {
+          return false;
+        }
+      }
+
+      // 3. Filtrar por Años de Experiencia (experience_years)
+      if (minExperiencia != null) {
+        final expYears =
+            (resumeData['experience_years'] as num?)?.toDouble() ?? 0.0;
+        if (expYears < minExperiencia) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+  }
 }

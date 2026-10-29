@@ -26,7 +26,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
   VacancyModel? _selectedVacancy;
   bool _isLoading = true;
   bool _isEvaluating = false;
-  int _resultTab = 0;
+  final int _resultTab = 0;
   String? _error;
   Map<String, int> _conteoPostulaciones = {};
 
