@@ -190,6 +190,15 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               7,
                             ),
+                          if (isAdmin || isRRHH || isRecruiter)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Biblioteca de CV',
+                                icon: Icons.folder_open_outlined,
+                              ),
+                              8,
+                            ),
 
                           const Spacer(),
                           _buildLogoutButton(context),

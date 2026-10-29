@@ -12,6 +12,7 @@ import 'widgets/view_mi_cv.dart';
 import 'widgets/view_hr_assistant.dart';
 import 'widgets/view_hr_assistant_inbox.dart';
 import 'widgets/view_candidate_report.dart';
+import 'widgets/view_candidate_cv_library.dart';
 import '../../main.dart';
 import '../auth/login_modal.dart';
 import '../auth/register_modal.dart';
@@ -104,6 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case 7:
         return (_isAdmin || _isRRHH || _isRecruiter)
             ? const ViewCandidateReport()
+            : const ViewInicio();
+      case 8:
+        return (_isAdmin || _isRRHH || _isRecruiter)
+            ? const ViewCandidateCvLibrary()
             : const ViewInicio();
       case 0:
       default:
