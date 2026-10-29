@@ -11,6 +11,7 @@ import 'widgets/view_registros.dart';
 import 'widgets/view_mi_cv.dart';
 import 'widgets/view_hr_assistant.dart';
 import 'widgets/view_hr_assistant_inbox.dart';
+import 'widgets/view_candidate_report.dart';
 import '../../main.dart';
 import '../auth/login_modal.dart';
 import '../auth/register_modal.dart';
@@ -38,7 +39,16 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _isRRHH {
     final metadata = supabase.auth.currentUser?.userMetadata;
     final role = metadata?['role']?.toString().toLowerCase();
-    return metadata?['isRRHH'] == true || role == 'responsable rrhh';
+    return metadata?['isRRHH'] == true ||
+        role == 'responsable rrhh' ||
+        role == 'responsable de recursos humanos';
+  }
+
+  bool get _isRecruiter {
+    final role = supabase.auth.currentUser?.userMetadata?['role']
+        ?.toString()
+        .toLowerCase();
+    return role == 'reclutador';
   }
 
   @override
@@ -90,6 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case 6:
         return (_isAdmin || _isRRHH)
             ? const ViewHrAssistantInbox()
+            : const ViewInicio();
+      case 7:
+        return (_isAdmin || _isRRHH || _isRecruiter)
+            ? const ViewCandidateReport()
             : const ViewInicio();
       case 0:
       default:
@@ -280,6 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 isLoggedIn: isLoggedIn,
                 isAdmin: _isAdmin,
                 isRRHH: _isRRHH,
+                isRecruiter: _isRecruiter,
                 isExpanded: isSidebarExpanded,
                 onNavigationSelected: _onTabSelected,
                 onHoverChanged: canExpandOnHover

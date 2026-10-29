@@ -7,6 +7,7 @@ class CustomSidebar extends StatelessWidget {
   final bool isLoggedIn;
   final bool isAdmin;
   final bool isRRHH;
+  final bool isRecruiter;
   final ValueChanged<int> onNavigationSelected;
   final ValueChanged<bool> onHoverChanged;
   final VoidCallback onToggle;
@@ -21,6 +22,7 @@ class CustomSidebar extends StatelessWidget {
     required this.isLoggedIn,
     this.isAdmin = false,
     this.isRRHH = false,
+    this.isRecruiter = false,
     required this.onNavigationSelected,
     required this.onHoverChanged,
     required this.onToggle,
@@ -178,6 +180,15 @@ class CustomSidebar extends StatelessWidget {
                                 icon: Icons.mark_unread_chat_alt_outlined,
                               ),
                               6,
+                            ),
+                          if (isAdmin || isRRHH || isRecruiter)
+                            _buildNavigationItem(
+                              context,
+                              const _SidebarItem(
+                                label: 'Reporte de candidatos',
+                                icon: Icons.assessment_outlined,
+                              ),
+                              7,
                             ),
 
                           const Spacer(),
