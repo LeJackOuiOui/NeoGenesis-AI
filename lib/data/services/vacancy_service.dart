@@ -67,8 +67,34 @@ class VacancyService {
 
   Future<void> aplicarAVacante(String vacancyId) async {
     final currentUser = client.auth.currentUser;
+
     if (currentUser == null) {
       throw Exception('Debes iniciar sesión para postularte.');
+    }
+
+    // Verificamos que el usuario tenga su hoja de vida registrada.
+    final candidate = await client
+        .from('candidatos')
+        .select('id')
+        .eq('created_by', currentUser.id)
+        .maybeSingle();
+
+    if (candidate == null) {
+      throw Exception(
+        'Primero debes completar y guardar tu hoja de vida para postularte.',
+      );
+    }
+
+    // Verificamos que no exista una postulación anterior.
+    final existingApplication = await client
+        .from('postulaciones')
+        .select('id')
+        .eq('vacante_id', vacancyId)
+        .eq('usuario_id', currentUser.id)
+        .maybeSingle();
+
+    if (existingApplication != null) {
+      throw Exception('Ya te has postulado a esta vacante.');
     }
 
     await client.from('postulaciones').insert({
@@ -311,53 +337,51 @@ class VacancyService {
     }
   }
 
-  /// Obtiene los candidatos y el ID de su postulación para una vacante específica
+  /// Obtiene los candidatos postulados a una vacante específica.
   Future<List<Map<String, dynamic>>> fetchCandidatesWithPostulationId(
     String vacancyId,
   ) async {
-    try {
-      final postResponse = await client
-          .from('postulaciones')
-          .select('id, usuario_id, estado')
-          .eq('vacante_id', vacancyId);
+    final postResponse = await client
+        .from('postulaciones')
+        .select('id, usuario_id, estado')
+        .eq('vacante_id', vacancyId);
 
-      if ((postResponse as List).isEmpty) return [];
+    if ((postResponse as List).isEmpty) return [];
 
-      final Map<String, Map<String, String>> userInfoMap = {};
-      for (var row in postResponse) {
-        final userId = row['usuario_id']?.toString();
-        final postId = row['id']?.toString();
-        final estado = row['estado']?.toString() ?? 'enviada';
-        if (userId != null && postId != null) {
-          userInfoMap[userId] = {'postulacion_id': postId, 'estado': estado};
-        }
+    final Map<String, Map<String, String>> userInfoMap = {};
+
+    for (var row in postResponse) {
+      final userId = row['usuario_id']?.toString();
+      final postId = row['id']?.toString();
+      final estado = row['estado']?.toString() ?? 'enviada';
+
+      if (userId != null && postId != null) {
+        userInfoMap[userId] = {'postulacion_id': postId, 'estado': estado};
       }
-
-      final userIds = userInfoMap.keys.toList();
-      if (userIds.isEmpty) return [];
-
-      final candidatesResponse = await client
-          .from('candidatos')
-          .select('id, full_name, email, phone, resume_data, created_by')
-          .inFilter('created_by', userIds);
-
-      List<Map<String, dynamic>> result = [];
-      for (var row in (candidatesResponse as List)) {
-        final candidateMap = Map<String, dynamic>.from(row as Map);
-        final createdBy = candidateMap['created_by']?.toString();
-
-        if (createdBy != null && userInfoMap.containsKey(createdBy)) {
-          candidateMap['postulacion_id'] =
-              userInfoMap[createdBy]!['postulacion_id'];
-          candidateMap['estado_postulacion'] =
-              userInfoMap[createdBy]!['estado'];
-          result.add(candidateMap);
-        }
-      }
-
-      return result;
-    } catch (e) {
-      return [];
     }
+
+    final userIds = userInfoMap.keys.toList();
+    if (userIds.isEmpty) return [];
+
+    final candidatesResponse = await client
+        .from('candidatos')
+        .select('id, full_name, email, phone, resume_data, created_by')
+        .inFilter('created_by', userIds);
+
+    List<Map<String, dynamic>> result = [];
+
+    for (var row in (candidatesResponse as List)) {
+      final candidateMap = Map<String, dynamic>.from(row as Map);
+      final createdBy = candidateMap['created_by']?.toString();
+
+      if (createdBy != null && userInfoMap.containsKey(createdBy)) {
+        candidateMap['postulacion_id'] =
+            userInfoMap[createdBy]!['postulacion_id'];
+        candidateMap['estado_postulacion'] = userInfoMap[createdBy]!['estado'];
+        result.add(candidateMap);
+      }
+    }
+
+    return result;
   }
 }

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+
 import '../../../config/theme/app_theme.dart';
+import '../../../data/models/candidate.dart';
 import '../../../data/models/candidate_model.dart';
+import '../../../data/models/job.dart';
 import '../../../data/models/vacancy_model.dart';
-import '../../../data/services/candidate_service.dart';
 import '../../../data/services/vacancy_service.dart';
 import '../../../main.dart';
+import '../candidate_ranking_screen.dart';
 
 class ViewEvaluacionCandidatos extends StatefulWidget {
   final VacancyModel vacancy;
@@ -18,17 +21,19 @@ class ViewEvaluacionCandidatos extends StatefulWidget {
 
 class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
   final _vacancyService = VacancyService(supabase);
-  final _candidateService = CandidateService(supabase);
 
   List<CandidateModel> _candidates = [];
   Map<String, CandidateEvaluation> _evaluations = {};
   Map<String, String> _candidatePostulationMap = {};
   Map<String, String> _candidateEstadoMap = {};
-  bool _isLoading = true;
-  int _resultTab = 0; // 0: Cumplen, 1: Excluidos, 2: Quitados
 
-  // Controladores y variables para búsqueda y filtros (HU-19)
+  bool _isLoading = true;
+  String? _error;
+
+  int _resultTab = 0;
+
   final TextEditingController _searchController = TextEditingController();
+
   String _searchQuery = '';
   String? _selectedEducationLevel = 'all';
 
@@ -45,8 +50,12 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
   @override
   void initState() {
     super.initState();
+
     _loadAndEvaluate();
+
     _searchController.addListener(() {
+      if (!mounted) return;
+
       setState(() {
         _searchQuery = _searchController.text.trim().toLowerCase();
       });
@@ -60,9 +69,15 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
   }
 
   Future<void> _loadAndEvaluate() async {
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
-      // 1. Cargar postulados de la vacante[cite: 12]
+      // 1. Consultar candidatos postulados a la vacante.
       final rawCandidatesData = await _vacancyService
           .fetchCandidatesWithPostulationId(widget.vacancy.id);
 
@@ -70,8 +85,10 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
       Map<String, String> candidatePostulationMap = {};
       Map<String, String> candidateEstadoMap = {};
 
+      // 2. Convertir los datos recibidos desde Supabase.
       for (var data in rawCandidatesData) {
         final postulacionId = data['postulacion_id']?.toString();
+
         final estado = data['estado_postulacion']?.toString() ?? 'enviada';
 
         final candidateMap = {
@@ -92,13 +109,14 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
         }
       }
 
-      // 2. Ejecutar la evaluación con los criterios de esta vacante[cite: 12]
+      // 3. Evaluar candidatos según los criterios de la vacante.
       final evaluations = await _vacancyService.evaluateCandidates(
         vacancy: widget.vacancy,
         candidates: candidates,
       );
 
       if (!mounted) return;
+
       setState(() {
         _candidates = candidates;
         _evaluations = evaluations;
@@ -106,21 +124,78 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
         _candidateEstadoMap = candidateEstadoMap;
       });
     } catch (e) {
-      print('Error al cargar y evaluar candidatos: $e');
-      print(StackTrace.current);
+      if (!mounted) return;
+
+      setState(() {
+        _error = 'No se pudieron cargar los candidatos.\nDetalle: $e';
+      });
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // Método de filtrado local combinando texto y nivel educativo (HU-19)
+  // Abrir el ranking utilizando los candidatos reales de Supabase.
+  void _openRanking(List<CandidateModel> candidates) {
+    final rankingCandidates = candidates.map((candidate) {
+      final resumeData = candidate.resumeData;
+
+      final skills =
+          (resumeData['skills'] as List?)
+              ?.map((skill) => skill.toString())
+              .toList() ??
+          [];
+
+      final experienceYears =
+          double.tryParse(resumeData['experience_years']?.toString() ?? '') ??
+          0;
+
+      final cvText = resumeData.entries
+          .map((entry) => '${entry.key}: ${entry.value}')
+          .join('\n');
+
+      return Candidate(
+        id: candidate.id,
+        name: candidate.fullName,
+        cvText: cvText,
+        skills: skills,
+        experienceYears: experienceYears,
+      );
+    }).toList();
+
+    final job = Job(
+      id: widget.vacancy.id,
+      title: widget.vacancy.title,
+      description:
+          'Experiencia mínima: ${widget.vacancy.minExperienceYears} años. '
+          'Habilidades requeridas: ${widget.vacancy.requiredSkills.join(', ')}.',
+      requiredSkills: widget.vacancy.requiredSkills,
+      requiredExperienceYears: widget.vacancy.minExperienceYears,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CandidateRankingScreen(
+          candidates: rankingCandidates,
+          job: job,
+          vacancyId: widget.vacancy.id,
+        ),
+      ),
+    );
+  }
+
+  // Filtrar candidatos por texto y nivel educativo.
   bool _matchesSearch(CandidateModel candidate) {
     final resumeData = candidate.resumeData;
 
-    // 1. Filtrar por nivel de formación
     if (_selectedEducationLevel != null && _selectedEducationLevel != 'all') {
       final candEdu =
           resumeData['education_level']?.toString().toLowerCase() ?? '';
+
       if (candEdu != _selectedEducationLevel) {
         return false;
       }
@@ -128,30 +203,32 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
 
     if (_searchQuery.isEmpty) return true;
 
-    // 2. Filtrar por nombre
+    // Buscar por nombre.
     if (candidate.fullName.toLowerCase().contains(_searchQuery)) {
       return true;
     }
 
-    // 3. Filtrar por cargo o posición
+    // Buscar por cargo o posición.
     if (candidate.profilePosition != null &&
         candidate.profilePosition!.toLowerCase().contains(_searchQuery)) {
       return true;
     }
 
-    // 4. Filtrar por habilidades en resume_data
+    // Buscar por habilidades.
     if (resumeData.isNotEmpty) {
       final skills =
           (resumeData['skills'] as List?)
               ?.map((s) => s.toString().toLowerCase())
               .toList() ??
           [];
+
       if (skills.any((skill) => skill.contains(_searchQuery))) {
         return true;
       }
 
       final additionalInfo =
           resumeData['additional_info']?.toString().toLowerCase() ?? '';
+
       if (additionalInfo.contains(_searchQuery)) {
         return true;
       }
@@ -204,12 +281,44 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
           ? const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryGreen),
             )
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.redAccent,
+                      size: 50,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Ocurrió un problema',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: _loadAndEvaluate,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Barra de Búsqueda por Habilidad o Cargo (HU-19)
+                  // Barra de búsqueda.
                   TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
@@ -237,9 +346,10 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 12),
 
-                  // Filtro por Nivel de Formación (HU-19)
+                  // Filtro por nivel educativo.
                   DropdownButtonFormField<String>(
                     value: _selectedEducationLevel ?? 'all',
                     decoration: InputDecoration(
@@ -270,29 +380,51 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                       });
                     },
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // Botón para generar el ranking.
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: eligible.isEmpty
+                          ? null
+                          : () => _openRanking(eligible),
+                      icon: const Icon(Icons.leaderboard),
+                      label: const Text('Generar ranking de candidatos'),
+                    ),
+                  ),
+
                   const SizedBox(height: 20),
 
-                  // Pestañas de estado del filtro
+                  // Pestañas de resultados.
                   Wrap(
                     spacing: 10,
                     children: [
                       ChoiceChip(
                         label: Text('Cumplen (${eligible.length})'),
                         selected: _resultTab == 0,
-                        onSelected: (_) => setState(() => _resultTab = 0),
+                        onSelected: (_) {
+                          setState(() => _resultTab = 0);
+                        },
                       ),
                       ChoiceChip(
                         label: Text('Excluidos (${excluded.length})'),
                         selected: _resultTab == 1,
-                        onSelected: (_) => setState(() => _resultTab = 1),
+                        onSelected: (_) {
+                          setState(() => _resultTab = 1);
+                        },
                       ),
                       ChoiceChip(
                         label: Text('Quitados (${removed.length})'),
                         selected: _resultTab == 2,
-                        onSelected: (_) => setState(() => _resultTab = 2),
+                        onSelected: (_) {
+                          setState(() => _resultTab = 2);
+                        },
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 20),
 
                   if (displayed.isEmpty)
@@ -320,16 +452,19 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                       itemBuilder: (context, index) {
                         final candidate = displayed[index];
                         final eval = _evaluations[candidate.id];
+
                         final isEligibleTab = _resultTab == 0;
+
                         final postulacionId =
                             _candidatePostulationMap[candidate.id];
 
-                        // Extraer skills y experiencia de resume_data
+                        // Datos del CV.
                         final skillsList =
                             (candidate.resumeData['skills'] as List?)
                                 ?.map((s) => s.toString())
                                 .toList() ??
                             [];
+
                         final expYears =
                             candidate.resumeData['experience_years'];
 
@@ -339,7 +474,7 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(12.0),
+                            padding: const EdgeInsets.all(12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -420,7 +555,10 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                                                                 'aceptada',
                                                               );
 
-                                                          if (!mounted) return;
+                                                          if (!mounted) {
+                                                            return;
+                                                          }
+
                                                           ScaffoldMessenger.of(
                                                             context,
                                                           ).showSnackBar(
@@ -436,7 +574,10 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
 
                                                           _loadAndEvaluate();
                                                         } catch (e) {
-                                                          if (!mounted) return;
+                                                          if (!mounted) {
+                                                            return;
+                                                          }
+
                                                           ScaffoldMessenger.of(
                                                             context,
                                                           ).showSnackBar(
@@ -454,7 +595,8 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                                               ))
                                       : null,
                                 ),
-                                // Mostrar los datos estructurados extraídos del JSON (Habilidades y Experiencia)
+
+                                // Habilidades y experiencia.
                                 if (skillsList.isNotEmpty ||
                                     expYears != null) ...[
                                   const Divider(height: 16),

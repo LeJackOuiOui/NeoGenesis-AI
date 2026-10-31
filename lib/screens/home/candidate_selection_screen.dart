@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neogenesis_ai/main.dart';
 
 import '../../data/models/candidate.dart';
 import '../../data/models/candidate_match.dart';
@@ -8,11 +9,13 @@ import '../../data/services/candidate_selection_service.dart';
 class CandidateSelectionScreen extends StatefulWidget {
   final List<CandidateMatch> rankedCandidates;
   final List<Candidate> availableCandidates;
+  final String vacancyId;
 
   const CandidateSelectionScreen({
     super.key,
     required this.rankedCandidates,
     required this.availableCandidates,
+    required this.vacancyId,
   });
 
   @override
@@ -23,6 +26,8 @@ class CandidateSelectionScreen extends StatefulWidget {
 class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
   late final List<CandidateSelection> _selections;
 
+  bool _isSaving = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,14 +37,55 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
     );
   }
 
-  void _confirmSelection() {
+  Future<void> _confirmSelection() async {
+    if (_isSaving) return;
+
+    final selected = CandidateSelectionService.getSelectedCandidates(
+      _selections,
+    );
+
+    if (selected.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona al menos un candidato.')),
+      );
+      return;
+    }
+
     setState(() {
-      CandidateSelectionService.confirmSelection(_selections);
+      _isSaving = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Selección confirmada correctamente.')),
-    );
+    try {
+      await CandidateSelectionService.saveConfirmedSelection(
+        client: supabase,
+        vacancyId: widget.vacancyId,
+        selections: _selections,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        CandidateSelectionService.confirmSelection(_selections);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selección guardada y confirmada correctamente.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar la selección: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   void _addCandidateManually() {
@@ -62,7 +108,7 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
 
     showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Agregar candidato'),
           content: SizedBox(
@@ -88,7 +134,7 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
                       );
                     });
 
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                   },
                 );
               },
@@ -118,7 +164,7 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
             child: SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _addCandidateManually,
+                onPressed: _isSaving ? null : _addCandidateManually,
                 icon: const Icon(Icons.person_add),
                 label: const Text('Agregar candidato manualmente'),
               ),
@@ -162,19 +208,21 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
                         ],
                       ),
                       trailing: ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            if (selection.selected) {
-                              CandidateSelectionService.removeCandidate(
-                                selection,
-                              );
-                            } else {
-                              CandidateSelectionService.selectCandidate(
-                                selection,
-                              );
-                            }
-                          });
-                        },
+                        onPressed: _isSaving
+                            ? null
+                            : () {
+                                setState(() {
+                                  if (selection.selected) {
+                                    CandidateSelectionService.removeCandidate(
+                                      selection,
+                                    );
+                                  } else {
+                                    CandidateSelectionService.selectCandidate(
+                                      selection,
+                                    );
+                                  }
+                                });
+                              },
                         child: Text(
                           selection.selected ? 'Quitar' : 'Seleccionar',
                         ),
@@ -207,13 +255,15 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
                           ],
                         ),
                         trailing: ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              CandidateSelectionService.removeCandidate(
-                                selection,
-                              );
-                            });
-                          },
+                          onPressed: _isSaving
+                              ? null
+                              : () {
+                                  setState(() {
+                                    CandidateSelectionService.removeCandidate(
+                                      selection,
+                                    );
+                                  });
+                                },
                           child: const Text('Quitar'),
                         ),
                       ),
@@ -228,8 +278,10 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _confirmSelection,
-                child: const Text('Confirmar selección'),
+                onPressed: _isSaving ? null : _confirmSelection,
+                child: _isSaving
+                    ? const CircularProgressIndicator()
+                    : const Text('Confirmar selección'),
               ),
             ),
           ),

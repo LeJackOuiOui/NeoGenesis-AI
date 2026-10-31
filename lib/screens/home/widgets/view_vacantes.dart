@@ -9,6 +9,7 @@ import '../../../data/services/vacancy_service.dart';
 import '../../../main.dart';
 import 'view_evaluacion_candidatos.dart';
 import 'view_horarios.dart';
+import 'recruiter_interview_screen.dart';
 
 class ViewVacantes extends StatefulWidget {
   const ViewVacantes({super.key});
@@ -470,8 +471,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
                   _emptyVacancies(),
                 if (_vacancies.isNotEmpty) ...[
                   const SizedBox(height: 8),
-
-                  // LISTA VERTICAL DE VACANTES
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -514,7 +513,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                       ),
                                     ),
                                   ),
-                                  // El símbolo de verificado sale únicamente si NO es RRHH / Empresa
                                   if (!_isRRHH &&
                                       vacancy.companyVerificationStatus ==
                                           'verified') ...[
@@ -526,7 +524,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                     const SizedBox(width: 4),
                                   ],
                                   if (_isRRHH) ...[
-                                    // Tus botones de edición y eliminación para RRHH...
                                     IconButton(
                                       tooltip: 'Editar vacante',
                                       onPressed: () =>
@@ -573,7 +570,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                 ],
                               ),
 
-                              // SECCIÓN EXCLUSIVA PARA RRHH (Empresa)
+                              // SECCIÓN EXCLUSIVA PARA RRHH
                               if (_isRRHH) ...[
                                 const SizedBox(height: 16),
                                 Row(
@@ -635,13 +632,40 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                     ),
                                   ],
                                 ),
+
+                                // BOTÓN PARA GESTIONAR ENTREVISTAS
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              RecruiterInterviewScreen(
+                                                vacancyId: vacancy.id,
+                                                recruiterId: vacancy.createdBy,
+                                              ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.event_available),
+                                    label: const Text('Gestionar entrevistas'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryGreen,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
 
-                              // SECCIÓN EXCLUSIVA PARA CANDIDATOS (!isRRHH)
+                              // SECCIÓN EXCLUSIVA PARA CANDIDATOS
                               if (!_isRRHH) ...[
                                 const SizedBox(height: 20),
                                 if (esAceptada) ...[
-                                  // BOTÓN PARA AGENDAR ENTREVISTA (CUANDO FUE ACEPTADO)
                                   SizedBox(
                                     width: double.infinity,
                                     child: ElevatedButton.icon(
@@ -653,7 +677,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                                 CandidateScheduleSelectionScreen(
                                                   vacancyId: vacancy.id,
                                                   recruiterId:
-                                                      vacancy.createdBy ?? '',
+                                                      vacancy.createdBy,
                                                   candidateId: supabase
                                                       .auth
                                                       .currentUser!
@@ -688,7 +712,6 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                     ),
                                   ),
                                 ] else ...[
-                                  // BOTÓN NORMAL DE POSTULACIÓN / CANCELACIÓN
                                   SizedBox(
                                     width: double.infinity,
                                     child: ElevatedButton.icon(

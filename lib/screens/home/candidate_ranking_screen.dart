@@ -4,20 +4,18 @@ import '../../data/models/candidate.dart';
 import '../../data/models/candidate_match.dart';
 import '../../data/models/job.dart';
 import '../../data/services/affinity_score_service.dart';
-import '../../data/services/embedding_service.dart';
-import '../../data/services/mock_embedding_service.dart';
 import 'candidate_selection_screen.dart';
 
 class CandidateRankingScreen extends StatefulWidget {
+  final String vacancyId;
   final List<Candidate> candidates;
   final Job job;
-  final EmbeddingService? embeddingService;
 
   const CandidateRankingScreen({
     super.key,
     required this.candidates,
     required this.job,
-    this.embeddingService,
+    required this.vacancyId,
   });
 
   @override
@@ -25,16 +23,11 @@ class CandidateRankingScreen extends StatefulWidget {
 }
 
 class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
-  late final EmbeddingService _embeddingService;
-
   bool _loading = false;
   List<CandidateMatch> _results = [];
-
-  double _semanticWeight = 0.7;
-  double _manualWeight = 0.3;
+  String? _error;
 
   late final List<Candidate> _candidates;
-
   late final Job _job;
 
   @override
@@ -43,34 +36,46 @@ class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
 
     _candidates = widget.candidates;
     _job = widget.job;
-
-    _embeddingService = widget.embeddingService ?? MockEmbeddingService();
   }
 
   Future<void> _calculateRanking() async {
+    if (_candidates.isEmpty) {
+      setState(() {
+        _error = 'No hay candidatos disponibles para generar el ranking.';
+        _results = [];
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
+      _error = null;
     });
 
-    final semanticScores = await AffinityScoreService.calculateSemanticScores(
-      jobDescription: _job.description,
-      candidates: _candidates,
-      embeddingService: _embeddingService,
-    );
+    try {
+      final results = AffinityScoreService.rankCandidates(
+        candidates: _candidates,
+        semanticScores: {},
+        requiredSkills: _job.requiredSkills,
+        requiredExperienceYears: _job.requiredExperienceYears,
+        semanticWeight: 0,
+        manualWeight: 1,
+      );
 
-    final results = AffinityScoreService.rankCandidates(
-      candidates: _candidates,
-      semanticScores: semanticScores,
-      requiredSkills: _job.requiredSkills,
-      requiredExperienceYears: _job.requiredExperienceYears,
-      semanticWeight: _semanticWeight,
-      manualWeight: _manualWeight,
-    );
+      if (!mounted) return;
 
-    setState(() {
-      _results = results;
-      _loading = false;
-    });
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = 'No fue posible generar el ranking: $e';
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -85,42 +90,29 @@ class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
             Text(_job.title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(_job.description),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            Text(
-              'Peso de la afinidad semántica: '
-              '${(_semanticWeight * 100).round()}%',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            const Text(
+              'El puntaje se calcula con base en la experiencia '
+              'y las habilidades de cada candidato.',
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Experiencia: 50 puntos. Habilidades: 50 puntos.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _loading ? null : _calculateRanking,
+                icon: const Icon(Icons.leaderboard),
+                label: Text(_loading ? 'Calculando...' : 'Calcular ranking'),
+              ),
             ),
 
-            Slider(
-              value: _semanticWeight,
-              min: 0,
-              max: 1,
-              divisions: 10,
-              label: '${(_semanticWeight * 100).round()}%',
-              onChanged: (value) {
-                setState(() {
-                  _semanticWeight = value;
-                  _manualWeight = 1 - value;
-                });
-              },
-            ),
-
-            Text(
-              'Peso de experiencia y habilidades: '
-              '${(_manualWeight * 100).round()}%',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 16),
-
-            ElevatedButton(
-              onPressed: _loading ? null : _calculateRanking,
-              child: Text(_loading ? 'Calculando...' : 'Calcular afinidad'),
-            ),
-
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             if (_results.isNotEmpty)
               Padding(
@@ -135,6 +127,7 @@ class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
                           builder: (context) => CandidateSelectionScreen(
                             rankedCandidates: _results.take(2).toList(),
                             availableCandidates: _candidates,
+                            vacancyId: widget.vacancyId,
                           ),
                         ),
                       );
@@ -145,11 +138,22 @@ class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
               ),
 
             Expanded(
-              child: _results.isEmpty
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    )
+                  : _results.isEmpty
                   ? const Center(
                       child: Text(
-                        'Pulsa "Calcular afinidad" '
+                        'Pulsa "Calcular ranking" '
                         'para generar el ranking.',
+                        textAlign: TextAlign.center,
                       ),
                     )
                   : ListView.builder(
@@ -163,13 +167,11 @@ class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
                             leading: CircleAvatar(child: Text('${index + 1}')),
                             title: Text(result.candidate.name),
                             subtitle: Text(
-                              'Semántico: '
-                              '${result.semanticScore.toStringAsFixed(1)}\n'
-                              'Manual: '
-                              '${result.manualScore.toStringAsFixed(1)}',
+                              'Experiencia y habilidades: '
+                              '${result.manualScore.toStringAsFixed(1)} / 100',
                             ),
                             trailing: Text(
-                              result.finalScore.toStringAsFixed(1),
+                              '${result.finalScore.toStringAsFixed(1)}%',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
