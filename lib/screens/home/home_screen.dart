@@ -55,14 +55,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Escuchar cambios de estado en la autenticación (Login / Logout)
+
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
       final event = data.event;
 
       if (mounted) {
         setState(() {
-          // Si cierra sesión o deja de ser admin estando en una vista restringida, vuelve a Inicio
           if (event == AuthChangeEvent.signedIn || session != null) {
             if (_selectedIndex == 0) {
               _selectedIndex = 0;
@@ -126,9 +125,11 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await supabase.auth.signOut();
       if (!mounted) return;
+
       setState(() {
         _selectedIndex = 0;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sesión cerrada correctamente.'),
@@ -137,6 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al cerrar sesión: $e'),
@@ -146,9 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- MODAL CENTRADO DE REGISTRO ---
   void _showRegisterOptionsModal() {
     final screenContext = context;
+
     showDialog(
       context: screenContext,
       builder: (context) => Dialog(
@@ -219,11 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showLoginOptionsModal() {
-    final screenContext = context;
-    showDialog(
-      context: screenContext,
-      builder: (context) => const LoginModal(),
-    );
+    showDialog(context: context, builder: (context) => const LoginModal());
   }
 
   Widget _buildModalOption({
@@ -285,39 +283,85 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isLoggedIn = supabase.auth.currentSession != null;
 
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isSidebarExpanded =
-              _sidebarExpanded ?? constraints.maxWidth < 900;
-          final canExpandOnHover = constraints.maxWidth >= 900;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 700;
+        final isSidebarExpanded =
+            _sidebarExpanded ?? constraints.maxWidth < 900;
+        final canExpandOnHover = constraints.maxWidth >= 900;
 
-          return Row(
-            children: [
-              CustomSidebar(
-                selectedIndex: _selectedIndex,
-                isLoggedIn: isLoggedIn,
-                isAdmin: _isAdmin,
-                isRRHH: _isRRHH,
-                isRecruiter: _isRecruiter,
-                isExpanded: isSidebarExpanded,
-                onNavigationSelected: _onTabSelected,
-                onHoverChanged: canExpandOnHover
-                    ? (isHovered) {
-                        setState(() {
-                          _sidebarExpanded = isHovered;
-                        });
-                      }
-                    : (_) {},
-                onToggle: () {
+        final sidebar = CustomSidebar(
+          selectedIndex: _selectedIndex,
+          isLoggedIn: isLoggedIn,
+          isAdmin: _isAdmin,
+          isRRHH: _isRRHH,
+          isRecruiter: _isRecruiter,
+          isExpanded: isSidebarExpanded,
+          onNavigationSelected: _onTabSelected,
+          onHoverChanged: canExpandOnHover
+              ? (isHovered) {
                   setState(() {
-                    _sidebarExpanded = !isSidebarExpanded;
+                    _sidebarExpanded = isHovered;
                   });
-                },
-                onLoginPressed: _showLoginOptionsModal,
-                onRegisterPressed: _showRegisterOptionsModal,
-                onLogoutPressed: _onLogoutPressed,
-              ),
+                }
+              : (_) {},
+          onToggle: () {
+            setState(() {
+              _sidebarExpanded = !isSidebarExpanded;
+            });
+          },
+          onLoginPressed: _showLoginOptionsModal,
+          onRegisterPressed: _showRegisterOptionsModal,
+          onLogoutPressed: _onLogoutPressed,
+        );
+
+        return Scaffold(
+          appBar: isMobile
+              ? AppBar(
+                  title: const Text(
+                    'NEOGENESIS IA',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.textDark,
+                  elevation: 0,
+                )
+              : null,
+          drawer: isMobile
+              ? Drawer(
+                  child: CustomSidebar(
+                    selectedIndex: _selectedIndex,
+                    isLoggedIn: isLoggedIn,
+                    isAdmin: _isAdmin,
+                    isRRHH: _isRRHH,
+                    isRecruiter: _isRecruiter,
+                    isExpanded: true,
+                    onNavigationSelected: (index) {
+                      Navigator.pop(context);
+                      _onTabSelected(index);
+                    },
+                    onHoverChanged: (_) {},
+                    onToggle: () {
+                      Navigator.pop(context);
+                    },
+                    onLoginPressed: () {
+                      Navigator.pop(context);
+                      _showLoginOptionsModal();
+                    },
+                    onRegisterPressed: () {
+                      Navigator.pop(context);
+                      _showRegisterOptionsModal();
+                    },
+                    onLogoutPressed: () {
+                      Navigator.pop(context);
+                      _onLogoutPressed();
+                    },
+                  ),
+                )
+              : null,
+          body: Row(
+            children: [
+              if (!isMobile) sidebar,
               Expanded(
                 child: Stack(
                   fit: StackFit.expand,
@@ -357,9 +401,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
