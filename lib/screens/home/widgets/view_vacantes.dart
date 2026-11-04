@@ -196,6 +196,7 @@ class _ViewVacantesState extends State<ViewVacantes> {
                         value,
                         label: 'La experiencia mínima',
                         allowZero: true,
+                        maximum: 100,
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -208,6 +209,10 @@ class _ViewVacantesState extends State<ViewVacantes> {
                         hintText: 'Dart, SQL, análisis de datos',
                         helperText:
                             'Separadas por comas. Todas son obligatorias.',
+                      ),
+                      validator: (value) => FormValidators.skills(
+                        value,
+                        required: false,
                       ),
                     ),
                     const SizedBox(height: 14),

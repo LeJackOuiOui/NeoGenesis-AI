@@ -24,8 +24,28 @@ void main() {
       expect(FormValidators.phone('', required: false), isNull);
     });
 
+    test('valida NIT y dígito de verificación', () {
+      expect(FormValidators.companyNit('900123456'), isNull);
+      expect(FormValidators.companyNit('12345'), isNotNull);
+      expect(FormValidators.companyNit(''), isNotNull);
+      expect(FormValidators.verificationDigit('0'), isNull);
+      expect(FormValidators.verificationDigit('12'), isNotNull);
+      expect(FormValidators.verificationDigit(''), isNotNull);
+    });
+
+    test('valida listas de habilidades', () {
+      expect(FormValidators.skills('Dart, SQL'), isNull);
+      expect(FormValidators.skills('  '), isNotNull);
+      expect(
+        FormValidators.skills('Dart, ${List.filled(101, 'x').join()}'),
+        isNotNull,
+      );
+      expect(FormValidators.skills('', required: false), isNull);
+    });
+
     test('valida números, contraseñas y confirmación', () {
       expect(FormValidators.positiveNumber('1,25', allowZero: true), isNull);
+      expect(FormValidators.positiveNumber('1,234', allowZero: true), isNotNull);
       expect(FormValidators.positiveNumber('abc', allowZero: true), isNotNull);
       expect(FormValidators.positiveNumber('-1', allowZero: true), isNotNull);
       expect(FormValidators.password('Password123'), isNull);

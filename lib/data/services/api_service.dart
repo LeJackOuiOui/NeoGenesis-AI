@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/utils/validators.dart';
 import '../models/user_model.dart';
 
 class DuplicateUserException implements Exception {
@@ -153,9 +154,23 @@ class ApiService {
       );
     }
     final normalizedEmail = correo.trim().toLowerCase();
+    final nameError = FormValidators.personName(nombre);
+    if (nameError != null) throw ArgumentError(nameError);
+    final emailError = FormValidators.email(normalizedEmail);
+    if (emailError != null) throw ArgumentError(emailError);
     if (!isValidGmailEmail(normalizedEmail)) {
       throw Exception('El correo debe ser de Gmail o Google Mail.');
     }
+    final phoneError = FormValidators.phone(telefono);
+    if (phoneError != null) throw ArgumentError(phoneError);
+    final positionError = FormValidators.requiredText(
+      cargo,
+      label: 'El cargo',
+      maxLength: 100,
+    );
+    if (positionError != null) throw ArgumentError(positionError);
+    final passwordError = FormValidators.password(password);
+    if (passwordError != null) throw ArgumentError(passwordError);
     final existing = await client
         .from('profiles')
         .select('id')
@@ -200,6 +215,19 @@ class ApiService {
     required DateTime fechaIngreso,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
+    final emailError = FormValidators.email(normalizedEmail);
+    if (emailError != null) throw ArgumentError(emailError);
+    final nameError = FormValidators.personName(nombre);
+    if (nameError != null) throw ArgumentError(nameError);
+    final positionError = FormValidators.requiredText(
+      cargo,
+      label: 'El cargo',
+      maxLength: 100,
+    );
+    if (positionError != null) throw ArgumentError(positionError);
+    if (!salarioBase.isFinite || salarioBase < 0) {
+      throw ArgumentError('El salario base debe ser un número no negativo.');
+    }
     Map<String, dynamic>? current;
     try {
       current = await client
@@ -285,6 +313,11 @@ class ApiService {
     required String tipoContrato,
     required DateTime fechaIngreso,
   }) async {
+    _validateEmployeeData(
+      nombre: nombre,
+      cargo: cargo,
+      salarioBase: salarioBase,
+    );
     final payload = buildEmployeeUpdatePayload(
       nombre: nombre,
       cargo: cargo,
@@ -337,6 +370,11 @@ class ApiService {
     required String tipoContrato,
     required DateTime fechaIngreso,
   }) async {
+    _validateEmployeeData(
+      nombre: nombre,
+      cargo: cargo,
+      salarioBase: salarioBase,
+    );
     final payload = buildEmployeeUpdatePayload(
       nombre: nombre,
       cargo: cargo,
@@ -374,6 +412,24 @@ class ApiService {
           .select('id, nombre, email, cargo, role, estado, created_at')
           .single();
       return UserModel.fromMap(Map<String, dynamic>.from(row));
+    }
+  }
+
+  void _validateEmployeeData({
+    required String nombre,
+    required String cargo,
+    required double salarioBase,
+  }) {
+    final nameError = FormValidators.personName(nombre);
+    if (nameError != null) throw ArgumentError(nameError);
+    final positionError = FormValidators.requiredText(
+      cargo,
+      label: 'El cargo',
+      maxLength: 100,
+    );
+    if (positionError != null) throw ArgumentError(positionError);
+    if (!salarioBase.isFinite || salarioBase < 0) {
+      throw ArgumentError('El salario base debe ser un número no negativo.');
     }
   }
 

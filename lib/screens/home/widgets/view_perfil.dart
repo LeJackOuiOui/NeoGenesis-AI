@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/validators.dart';
 import '../../profile/recruiter_availability.dart';
 
 class ViewPerfil extends StatefulWidget {
@@ -115,18 +117,31 @@ class _ViewPerfilState extends State<ViewPerfil> {
                 children: [
                   TextFormField(
                     controller: nombreController,
+                    inputFormatters: _rol == 'empresa'
+                        ? null
+                        : [FormValidators.nameInputFormatter],
+                    maxLength: 100,
                     decoration: const InputDecoration(
                       labelText: 'Nombre completo',
                     ),
-                    validator: (val) => val == null || val.trim().isEmpty
-                        ? 'El nombre es obligatorio'
-                        : null,
+                    validator: _rol == 'empresa'
+                        ? (value) => FormValidators.requiredText(
+                            value,
+                            label: 'El nombre de la empresa',
+                            minLength: 2,
+                            maxLength: 100,
+                          )
+                        : FormValidators.personName,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: telefonoController,
                     keyboardType: TextInputType.phone,
+                    inputFormatters: [FormValidators.phoneInputFormatter],
+                    maxLength: 20,
                     decoration: const InputDecoration(labelText: 'Teléfono'),
+                    validator: (value) =>
+                        FormValidators.phone(value, required: false),
                   ),
                   if (_rol == 'empresa') ...[
                     const SizedBox(height: 12),
@@ -137,14 +152,12 @@ class _ViewPerfilState extends State<ViewPerfil> {
                           child: TextFormField(
                             controller: nitController,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            maxLength: 10,
                             decoration: const InputDecoration(labelText: 'NIT'),
-                            validator: (val) {
-                              if (_rol == 'empresa' &&
-                                  (val == null || val.trim().isEmpty)) {
-                                return 'Campo requerido';
-                              }
-                              return null;
-                            },
+                            validator: FormValidators.companyNit,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -154,17 +167,14 @@ class _ViewPerfilState extends State<ViewPerfil> {
                             controller: dvController,
                             keyboardType: TextInputType.number,
                             maxLength: 1,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             decoration: const InputDecoration(
                               labelText: 'DV',
                               counterText: '',
                             ),
-                            validator: (val) {
-                              if (_rol == 'empresa' &&
-                                  (val == null || val.trim().isEmpty)) {
-                                return 'DV req.';
-                              }
-                              return null;
-                            },
+                            validator: FormValidators.verificationDigit,
                           ),
                         ),
                       ],
@@ -172,8 +182,15 @@ class _ViewPerfilState extends State<ViewPerfil> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: direccionController,
+                      maxLength: 200,
                       decoration: const InputDecoration(
                         labelText: 'Dirección física',
+                      ),
+                      validator: (value) => FormValidators.requiredText(
+                        value,
+                        label: 'La dirección de la empresa',
+                        minLength: 5,
+                        maxLength: 200,
                       ),
                     ),
                   ],

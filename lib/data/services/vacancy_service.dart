@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/utils/validators.dart';
 import '../models/candidate_model.dart';
 import '../models/vacancy_model.dart';
 import 'candidate_criteria_evaluator.dart';
@@ -111,6 +112,39 @@ class VacancyService {
     required List<String> requiredSkills,
     required String minEducationLevel,
   }) async {
+    final titleError = FormValidators.requiredText(
+      title,
+      label: 'El nombre de la vacante',
+      maxLength: 100,
+    );
+    if (titleError != null) throw ArgumentError(titleError);
+    final experienceError = FormValidators.positiveNumber(
+      minExperienceYears.toString(),
+      label: 'La experiencia mínima',
+      allowZero: true,
+      maximum: 100,
+    );
+    if (experienceError != null) throw ArgumentError(experienceError);
+    if (requiredSkills.any((skill) => skill.trim().isEmpty)) {
+      throw ArgumentError('Cada habilidad requerida debe tener un valor.');
+    }
+    final skillsError = FormValidators.skills(
+      requiredSkills.join(', '),
+      required: false,
+      label: 'Las habilidades requeridas',
+    );
+    if (skillsError != null) throw ArgumentError(skillsError);
+    if (!const {
+      'none',
+      'secondary',
+      'technical',
+      'bachelor',
+      'postgraduate',
+      'doctorate',
+    }.contains(minEducationLevel)) {
+      throw ArgumentError('Selecciona un nivel mínimo de formación válido.');
+    }
+
     final currentUser = client.auth.currentUser;
     final vacancyId = id ?? _newVacancyId();
     final payload = {

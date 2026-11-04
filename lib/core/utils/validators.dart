@@ -57,6 +57,54 @@ class FormValidators {
     return null;
   }
 
+  static String? companyNit(String? value, {bool required = true}) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return required ? 'Ingresa el NIT de la empresa.' : null;
+    if (!RegExp(r'^\d{9,10}$').hasMatch(text)) {
+      return 'El NIT debe tener entre 9 y 10 dígitos.';
+    }
+    return null;
+  }
+
+  static String? verificationDigit(String? value, {bool required = true}) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return required ? 'Ingresa el dígito de verificación.' : null;
+    }
+    if (!RegExp(r'^\d$').hasMatch(text)) {
+      return 'El dígito de verificación debe ser un número entre 0 y 9.';
+    }
+    return null;
+  }
+
+  static String? skills(
+    String? value, {
+    bool required = true,
+    String label = 'Las habilidades',
+  }) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return required ? 'Ingresa al menos una habilidad.' : null;
+    }
+    if (text.length > 1000) {
+      return '$label no pueden superar 1000 caracteres.';
+    }
+
+    final entries = text
+        .split(',')
+        .map((skill) => skill.trim())
+        .where((skill) => skill.isNotEmpty)
+        .toList();
+    if (entries.isEmpty) return required ? 'Ingresa al menos una habilidad.' : null;
+    if (entries.any((skill) => skill.length > 100)) {
+      return 'Cada habilidad debe tener entre 1 y 100 caracteres.';
+    }
+    if (entries.join(', ').length > 1000) {
+      return '$label no pueden superar 1000 caracteres.';
+    }
+    return null;
+  }
+
   static String? email(String? value, {bool required = true}) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return required ? 'Ingresa el correo electrónico.' : null;
@@ -102,6 +150,9 @@ class FormValidators {
     if (text.isEmpty) return '$label es obligatorio.';
     final number = double.tryParse(text);
     if (number == null || !number.isFinite) return '$label debe ser numérico.';
+    if (RegExp(r'[.,]\d{3,}$').hasMatch(text)) {
+      return '$label admite máximo 2 decimales.';
+    }
     if (allowZero ? number < 0 : number <= 0) {
       return allowZero
           ? '$label no puede ser negativo.'
