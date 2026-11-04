@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../data/services/api_service.dart';
 
 class OtpVerificationDialog extends StatefulWidget {
@@ -48,12 +49,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Código inválido o expirado: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, e, onRetry: _handleVerify);
     } finally {
       if (mounted) setState(() => _isVerifying = false);
     }

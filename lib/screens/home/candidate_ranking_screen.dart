@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/app_error_handler.dart';
 import '../../data/models/candidate.dart';
 import '../../data/models/candidate_match.dart';
 import '../../data/models/job.dart';
@@ -72,7 +73,7 @@ class _CandidateRankingScreenState extends State<CandidateRankingScreen> {
       if (!mounted) return;
 
       setState(() {
-        _error = 'No fue posible generar el ranking: $e';
+        _error = AppErrorHandler.messageFor(e);
         _loading = false;
       });
     }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../config/theme/app_theme.dart';
 import '../../../data/services/hr_assistant_service.dart';
 import '../../../main.dart';
@@ -32,7 +33,9 @@ class _ViewHrAssistantInboxState extends State<ViewHrAssistantInbox> {
       final items = await _service.getEscalatedInteractions();
       if (mounted) setState(() => _items = items);
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error = AppErrorHandler.messageFor(error));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -96,11 +99,16 @@ class _ViewHrAssistantInboxState extends State<ViewHrAssistantInbox> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo enviar la respuesta: $error'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppErrorHandler.show(
+        context,
+        error,
+        onRetry: () async {
+          await _service.answerEscalatedInteraction(
+            interactionId: item['id'].toString(),
+            answer: answer,
+          );
+          await _loadInbox();
+        },
       );
     }
   }
@@ -173,7 +181,10 @@ class _ViewHrAssistantInboxState extends State<ViewHrAssistantInbox> {
       leading: const Icon(Icons.error_outline, color: Colors.redAccent),
       title: const Text('No se pudo cargar la bandeja.'),
       subtitle: Text(_error!),
-      trailing: TextButton(onPressed: _loadInbox, child: const Text('Reintentar')),
+      trailing: TextButton(
+        onPressed: _loadInbox,
+        child: const Text('Reintentar'),
+      ),
     ),
   );
 
@@ -213,7 +224,9 @@ class _ViewHrAssistantInboxState extends State<ViewHrAssistantInbox> {
                 ),
                 if (createdAt != null)
                   Text(
-                    MaterialLocalizations.of(context).formatShortDate(createdAt),
+                    MaterialLocalizations.of(
+                      context,
+                    ).formatShortDate(createdAt),
                     style: const TextStyle(color: Colors.black54, fontSize: 12),
                   ),
               ],

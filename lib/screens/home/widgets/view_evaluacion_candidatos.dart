@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../data/models/candidate.dart';
 import '../../../data/models/candidate_model.dart';
 import '../../../data/models/job.dart';
@@ -127,7 +128,7 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
       if (!mounted) return;
 
       setState(() {
-        _error = 'No se pudieron cargar los candidatos.\nDetalle: $e';
+        _error = AppErrorHandler.messageFor(e);
       });
     } finally {
       if (mounted) {
@@ -578,17 +579,17 @@ class _ViewEvaluacionCandidatosState extends State<ViewEvaluacionCandidatos> {
                                                             return;
                                                           }
 
-                                                          ScaffoldMessenger.of(
+                                                          AppErrorHandler.show(
                                                             context,
-                                                          ).showSnackBar(
-                                                            SnackBar(
-                                                              content: Text(
-                                                                'Error al aceptar candidato: $e',
-                                                              ),
-                                                              backgroundColor:
-                                                                  Colors
-                                                                      .redAccent,
-                                                            ),
+                                                            e,
+                                                            onRetry: () async {
+                                                              await _vacancyService
+                                                                  .actualizarEstadoPostulacion(
+                                                                    postulacionId,
+                                                                    'aceptada',
+                                                                  );
+                                                              await _loadAndEvaluate();
+                                                            },
                                                           );
                                                         }
                                                       },

@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../core/utils/excel_file_builder.dart';
 import '../../../data/models/candidate_model.dart';
 import '../../../data/models/candidate_report_item.dart';
@@ -13,6 +14,7 @@ import '../../../data/models/vacancy_model.dart';
 import '../../../data/services/candidate_report_service.dart';
 import '../../../data/services/vacancy_service.dart';
 import '../../../main.dart';
+import 'app_page_background.dart';
 
 class ViewCandidateReport extends StatefulWidget {
   const ViewCandidateReport({super.key});
@@ -70,7 +72,9 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
         _items = results[1] as List<CandidateReportItem>;
       });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error = AppErrorHandler.messageFor(error));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -151,12 +155,7 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo exportar el reporte: $error'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, error, onRetry: _exportPdf);
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -192,12 +191,7 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo exportar el reporte Excel: $error'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, error, onRetry: _exportExcel);
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -290,192 +284,285 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reporte de candidatos'),
-        actions: [
-          IconButton(
-            tooltip: 'Actualizar reporte',
-            onPressed: _isLoading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'Elegir formato de exportación',
-            enabled: _items.isNotEmpty && !_isLoading && !_isExporting,
-            onSelected: (format) {
-              if (format == 'pdf') {
-                _exportPdf();
-              } else {
-                _exportExcel();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'pdf',
-                child: ListTile(
-                  leading: Icon(Icons.picture_as_pdf_outlined),
-                  title: Text('Exportar como PDF'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'excel',
-                child: ListTile(
-                  leading: Icon(Icons.table_chart_outlined),
-                  title: Text('Exportar como Excel'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+    return AppPageBackground(
+      child: SizedBox(
+        width: double.infinity,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(28),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_isExporting)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    const Icon(Icons.file_download_outlined),
-                  const SizedBox(width: 6),
-                  Text(_isExporting ? 'Exportando...' : 'Exportar'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 250,
-                      child: DropdownButtonFormField<String?>(
-                        initialValue: _selectedVacancyId,
-                        decoration: const InputDecoration(
-                          labelText: 'Vacante',
-                          border: OutlineInputBorder(),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 12,
+                    children: [
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 620),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Reporte de candidatos',
+                              style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              'Consulta y exporta las postulaciones según los filtros seleccionados.',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                          ],
                         ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('Todas las vacantes'),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          IconButton(
+                            tooltip: 'Actualizar reporte',
+                            onPressed: _isLoading ? null : _load,
+                            icon: const Icon(Icons.refresh_rounded),
                           ),
-                          ..._vacancies.map(
-                            (vacancy) => DropdownMenuItem<String?>(
-                              value: vacancy.id,
-                              child: Text(
-                                vacancy.title,
-                                overflow: TextOverflow.ellipsis,
+                          PopupMenuButton<String>(
+                            tooltip: 'Elegir formato de exportación',
+                            enabled:
+                                _items.isNotEmpty &&
+                                !_isLoading &&
+                                !_isExporting,
+                            onSelected: (format) {
+                              if (format == 'pdf') {
+                                _exportPdf();
+                              } else {
+                                _exportExcel();
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'pdf',
+                                child: ListTile(
+                                  leading: Icon(Icons.picture_as_pdf_outlined),
+                                  title: Text('Exportar como PDF'),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'excel',
+                                child: ListTile(
+                                  leading: Icon(Icons.table_chart_outlined),
+                                  title: Text('Exportar como Excel'),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ],
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryGreen,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryGreen.withValues(
+                                      alpha: 0.24,
+                                    ),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_isExporting)
+                                      const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    else
+                                      const Icon(
+                                        Icons.file_download_outlined,
+                                        color: Colors.white,
+                                        size: 19,
+                                      ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _isExporting
+                                          ? 'Exportando...'
+                                          : 'Exportar',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ],
-                        onChanged: (value) {
-                          setState(() => _selectedVacancyId = value);
-                          _load();
-                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  Card(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    elevation: 3,
+                    shadowColor: AppTheme.primaryGreen.withValues(alpha: 0.12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: AppTheme.primaryGreen.withValues(alpha: 0.12),
                       ),
                     ),
-                    SizedBox(
-                      width: 190,
-                      child: DropdownButtonFormField<String?>(
-                        initialValue: _selectedStatus,
-                        decoration: const InputDecoration(
-                          labelText: 'Estado',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('Todos los estados'),
-                          ),
-                          ..._statuses.entries.map(
-                            (status) => DropdownMenuItem<String?>(
-                              value: status.key,
-                              child: Text(status.value),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 250,
+                            child: DropdownButtonFormField<String?>(
+                              isExpanded: true,
+                              initialValue: _selectedVacancyId,
+                              decoration: const InputDecoration(
+                                labelText: 'Vacante',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: [
+                                const DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text('Todas las vacantes'),
+                                ),
+                                ..._vacancies.map(
+                                  (vacancy) => DropdownMenuItem<String?>(
+                                    value: vacancy.id,
+                                    child: Text(
+                                      vacancy.title,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _selectedVacancyId = value);
+                                _load();
+                              },
                             ),
                           ),
+                          SizedBox(
+                            width: 190,
+                            child: DropdownButtonFormField<String?>(
+                              isExpanded: true,
+                              initialValue: _selectedStatus,
+                              decoration: const InputDecoration(
+                                labelText: 'Estado',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: [
+                                const DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text('Todos los estados'),
+                                ),
+                                ..._statuses.entries.map(
+                                  (status) => DropdownMenuItem<String?>(
+                                    value: status.key,
+                                    child: Text(status.value),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _selectedStatus = value);
+                                _load();
+                              },
+                            ),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: () => _selectDate(isStart: true),
+                            icon: const Icon(Icons.calendar_today_outlined),
+                            label: Text(
+                              _fromDate == null
+                                  ? 'Desde'
+                                  : 'Registro desde ${_formatDate(_fromDate)}',
+                            ),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: () => _selectDate(isStart: false),
+                            icon: const Icon(Icons.event_outlined),
+                            label: Text(
+                              _toDate == null
+                                  ? 'Hasta'
+                                  : 'Hasta ${_formatDate(_toDate)}',
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _clearFilters,
+                            icon: const Icon(Icons.filter_alt_off_outlined),
+                            label: const Text('Limpiar'),
+                          ),
                         ],
-                        onChanged: (value) {
-                          setState(() => _selectedStatus = value);
-                          _load();
-                        },
                       ),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () => _selectDate(isStart: true),
-                      icon: const Icon(Icons.calendar_today_outlined),
-                      label: Text(
-                        _fromDate == null
-                            ? 'Desde'
-                            : 'Registro desde ${_formatDate(_fromDate)}',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_items.length} candidato(s) | Score calculado según el cumplimiento proporcional de experiencia, habilidades y formación.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  if (_error != null)
+                    MaterialBanner(
+                      content: Text('No se pudo cargar el reporte: $_error'),
+                      leading: const Icon(Icons.error_outline),
+                      actions: [
+                        TextButton(
+                          onPressed: _load,
+                          child: const Text('Reintentar'),
+                        ),
+                      ],
+                    ),
+                  if (_isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: CircularProgressIndicator(
+                          color: AppTheme.primaryGreen,
+                        ),
                       ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _selectDate(isStart: false),
-                      icon: const Icon(Icons.event_outlined),
-                      label: Text(
-                        _toDate == null
-                            ? 'Hasta'
-                            : 'Hasta ${_formatDate(_toDate)}',
+                    )
+                  else if (_items.isEmpty)
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(28),
+                        child: Center(
+                          child: Text(
+                            'No hay postulaciones para estos filtros.',
+                          ),
+                        ),
                       ),
-                    ),
-                    TextButton.icon(
-                      onPressed: _clearFilters,
-                      icon: const Icon(Icons.filter_alt_off_outlined),
-                      label: const Text('Limpiar'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_items.length} candidato(s) | Score calculado según el cumplimiento proporcional de experiencia, habilidades y formación.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            if (_error != null)
-              MaterialBanner(
-                content: Text('No se pudo cargar el reporte: $_error'),
-                leading: const Icon(Icons.error_outline),
-                actions: [
-                  TextButton(onPressed: _load, child: const Text('Reintentar')),
+                    )
+                  else
+                    ..._items.map(_buildCandidateCard),
                 ],
               ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.primaryGreen,
-                      ),
-                    )
-                  : _items.isEmpty
-                  ? const Center(
-                      child: Text('No hay postulaciones para estos filtros.'),
-                    )
-                  : ListView.separated(
-                      itemCount: _items.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) =>
-                          _buildCandidateCard(_items[index]),
-                    ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -490,42 +577,74 @@ class _ViewCandidateReportState extends State<ViewCandidateReport> {
         ? AppTheme.primaryGreen
         : Colors.orange.shade800;
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          backgroundColor: AppTheme.lightGreenBg,
-          child: Text(
-            candidate?.fullName.isNotEmpty == true
-                ? candidate!.fullName[0].toUpperCase()
-                : '?',
-            style: const TextStyle(color: AppTheme.primaryGreen),
-          ),
-        ),
-        title: Text(candidate?.fullName ?? 'Perfil no disponible'),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            '${item.vacancyTitle}\n'
-            '${candidate?.email ?? 'Sin correo'}'
-            '${candidate?.phone?.isNotEmpty == true ? ' | ${candidate!.phone}' : ''}\n'
-            '${_profileSummary(candidate)}\n'
-            'Estado: ${_statusLabel(item.status)} | '
-            'Registro del perfil: ${_formatDate(item.candidateRegisteredAt)}',
-          ),
-        ),
-        isThreeLine: true,
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      color: Colors.white.withValues(alpha: 0.96),
+      elevation: 3,
+      shadowColor: AppTheme.primaryGreen.withValues(alpha: 0.12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: AppTheme.primaryGreen.withValues(alpha: 0.1)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              score == null ? 'N/D' : '${score.toStringAsFixed(0)}%',
-              style: TextStyle(
-                color: scoreColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: AppTheme.lightGreenBg,
+              child: Icon(
+                Icons.person_outline_rounded,
+                color: AppTheme.primaryGreen,
               ),
             ),
-            const Text('Score'),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    candidate?.fullName ?? 'Perfil no disponible',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(item.vacancyTitle),
+                  Text(
+                    '${candidate?.email ?? 'Sin correo'}'
+                    '${candidate?.phone?.isNotEmpty == true ? ' | ${candidate!.phone}' : ''}',
+                  ),
+                  Text(_profileSummary(candidate)),
+                  Text(
+                    'Estado: ${_statusLabel(item.status)} | '
+                    'Registro del perfil: ${_formatDate(item.candidateRegisteredAt)}',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: scoreColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    score == null ? 'N/D' : '${score.toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      color: scoreColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Score',
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

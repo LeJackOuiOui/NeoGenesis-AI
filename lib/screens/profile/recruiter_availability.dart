@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/app_error_handler.dart';
 import '../../data/services/recruiter_availability_service.dart';
 
 class RecruiterAvailabilityScreen extends StatefulWidget {
@@ -120,9 +121,11 @@ class _RecruiterAvailabilityScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
+        AppErrorHandler.show(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          e,
+          onRetry: () => _handleSave(editId: editId),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

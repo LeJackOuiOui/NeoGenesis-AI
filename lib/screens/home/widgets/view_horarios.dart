@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_error_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../data/services/candidate_interview_service.dart';
@@ -78,13 +79,7 @@ class _CandidateScheduleSelectionScreenState
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al agendar: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, e, onRetry: () => _bookInterview(slot));
     } finally {
       if (mounted) {
         setState(() {

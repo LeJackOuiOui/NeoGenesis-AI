@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../core/utils/validators.dart';
 import '../../profile/recruiter_availability.dart';
 
@@ -78,9 +79,7 @@ class _ViewPerfilState extends State<ViewPerfil> {
       _avatarUrl = data['avatar_url'];
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al cargar perfil: $e')));
+        AppErrorHandler.show(context, e, onRetry: _cargarDatosPerfil);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -210,29 +209,29 @@ class _ViewPerfilState extends State<ViewPerfil> {
             ),
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
+              final userId = supabase.auth.currentUser?.id;
+              if (userId == null) return;
+
+              final updateData = {
+                'nombre': nombreController.text.trim(),
+                'telefono': telefonoController.text.trim(),
+                if (_rol == 'empresa') ...{
+                  'company_nit': nitController.text.trim(),
+                  'company_dv': dvController.text.trim(),
+                  'company_address': direccionController.text.trim(),
+                },
+                'updated_at': DateTime.now().toUtc().toIso8601String(),
+              };
               try {
-                final userId = supabase.auth.currentUser?.id;
-                if (userId == null) return;
-
-                final updateData = {
-                  'nombre': nombreController.text.trim(),
-                  'telefono': telefonoController.text.trim(),
-                  if (_rol == 'empresa') ...{
-                    'company_nit': nitController.text.trim(),
-                    'company_dv': dvController.text.trim(),
-                    'company_address': direccionController.text.trim(),
-                  },
-                  'updated_at': DateTime.now().toUtc().toIso8601String(),
-                };
-
                 await supabase
                     .from('profiles')
                     .update(updateData)
                     .eq('id', userId);
 
-                if (!mounted) return;
+                if (!context.mounted) return;
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+                ScaffoldMessenger.of(this.context).showSnackBar(
                   const SnackBar(
                     content: Text('Perfil actualizado correctamente'),
                     backgroundColor: AppTheme.primaryGreen,
@@ -240,12 +239,21 @@ class _ViewPerfilState extends State<ViewPerfil> {
                 );
                 _cargarDatosPerfil();
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error al actualizar: $e'),
-                    backgroundColor: Colors.redAccent,
-                  ),
-                );
+                if (context.mounted) {
+                  AppErrorHandler.show(
+                    context,
+                    e,
+                    onRetry: () async {
+                      await supabase
+                          .from('profiles')
+                          .update(updateData)
+                          .eq('id', userId);
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      await _cargarDatosPerfil();
+                    },
+                  );
+                }
               }
             },
             child: const Text('Guardar cambios'),
