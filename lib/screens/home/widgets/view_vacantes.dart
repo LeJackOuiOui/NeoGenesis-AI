@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/models/candidate_model.dart';
 import '../../../data/models/vacancy_model.dart';
@@ -97,7 +98,9 @@ class _ViewVacantesState extends State<ViewVacantes> {
         await _evaluate(_selectedVacancy!);
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error = AppErrorHandler.messageFor(error));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -124,7 +127,11 @@ class _ViewVacantesState extends State<ViewVacantes> {
           }
         }
       });
-    } catch (_) {}
+    } catch (error) {
+      if (mounted) {
+        AppErrorHandler.show(context, error, onRetry: _loadPostulacionesList);
+      }
+    }
   }
 
   Future<void> _evaluate(VacancyModel vacancy) async {
@@ -138,7 +145,9 @@ class _ViewVacantesState extends State<ViewVacantes> {
         setState(() => _evaluations = evaluations);
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error = AppErrorHandler.messageFor(error));
+      }
     } finally {
       if (mounted) setState(() => _isEvaluating = false);
     }
@@ -210,10 +219,8 @@ class _ViewVacantesState extends State<ViewVacantes> {
                         helperText:
                             'Separadas por comas. Todas son obligatorias.',
                       ),
-                      validator: (value) => FormValidators.skills(
-                        value,
-                        required: false,
-                      ),
+                      validator: (value) =>
+                          FormValidators.skills(value, required: false),
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
@@ -265,7 +272,21 @@ class _ViewVacantesState extends State<ViewVacantes> {
                   );
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 } catch (error) {
-                  if (mounted) _showMessage('No se pudo guardar: $error', true);
+                  if (mounted) {
+                    AppErrorHandler.show(
+                      context,
+                      error,
+                      onRetry: () => _saveVacancyFromForm(
+                        vacancy,
+                        titleController.text,
+                        experienceController.text,
+                        skillsController.text,
+                        educationLevel,
+                        dialogContext,
+                        (result) => saved = result,
+                      ),
+                    );
+                  }
                 }
               },
               icon: const Icon(Icons.save_outlined),
@@ -281,6 +302,31 @@ class _ViewVacantesState extends State<ViewVacantes> {
     if (saved != null && mounted) {
       await _load(preferredVacancyId: saved!.id);
     }
+  }
+
+  Future<void> _saveVacancyFromForm(
+    VacancyModel? vacancy,
+    String title,
+    String experience,
+    String skills,
+    String educationLevel,
+    BuildContext dialogContext,
+    void Function(VacancyModel) onSaved,
+  ) async {
+    final saved = await _vacancyService.saveVacancy(
+      id: vacancy?.id,
+      title: title,
+      minExperienceYears: double.parse(experience.trim().replaceAll(',', '.')),
+      requiredSkills: skills
+          .split(',')
+          .map((skill) => skill.trim())
+          .where((skill) => skill.isNotEmpty)
+          .toSet()
+          .toList(),
+      minEducationLevel: educationLevel,
+    );
+    onSaved(saved);
+    if (dialogContext.mounted) Navigator.pop(dialogContext);
   }
 
   Future<void> _confirmDeleteVacancy(VacancyModel vacancy) async {
@@ -319,7 +365,13 @@ class _ViewVacantesState extends State<ViewVacantes> {
         _showMessage('Vacante eliminada. Los candidatos siguen intactos.');
       }
     } catch (error) {
-      if (mounted) _showMessage('No se pudo eliminar la vacante: $error', true);
+      if (mounted) {
+        AppErrorHandler.show(
+          context,
+          error,
+          onRetry: () => _confirmDeleteVacancy(vacancy),
+        );
+      }
     }
   }
 
@@ -339,7 +391,13 @@ class _ViewVacantesState extends State<ViewVacantes> {
         await _load(preferredVacancyId: vacancy.id);
         if (mounted) _showMessage('Candidato restaurado en la vacante.');
       } catch (error) {
-        if (mounted) _showMessage('No se pudo restaurar: $error', true);
+        if (mounted) {
+          AppErrorHandler.show(
+            context,
+            error,
+            onRetry: () => _confirmRemoveCandidate(candidate, isRemoved: true),
+          );
+        }
       }
       return;
     }
@@ -377,7 +435,13 @@ class _ViewVacantesState extends State<ViewVacantes> {
         _showMessage('Persona quitada de la vacante; su perfil se conserva.');
       }
     } catch (error) {
-      if (mounted) _showMessage('No se pudo quitar a la persona: $error', true);
+      if (mounted) {
+        AppErrorHandler.show(
+          context,
+          error,
+          onRetry: () => _confirmRemoveCandidate(candidate, isRemoved: false),
+        );
+      }
     }
   }
 
@@ -750,9 +814,11 @@ class _ViewVacantesState extends State<ViewVacantes> {
                                           }
                                         } catch (e) {
                                           if (!context.mounted) return;
-                                          _showMessage(
-                                            'No se pudo completar la solicitud: $e',
-                                            true,
+                                          AppErrorHandler.show(
+                                            context,
+                                            e,
+                                            onRetry: () => _vacancyService
+                                                .aplicarAVacante(vacancy.id),
                                           );
                                         }
                                       },
@@ -852,9 +918,12 @@ class _ViewVacantesState extends State<ViewVacantes> {
       color: Colors.red.shade50,
       borderRadius: BorderRadius.circular(12),
     ),
-    child: Text(
-      'No se pudo cargar o evaluar. $message',
-      style: TextStyle(color: Colors.red.shade800),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(message, style: TextStyle(color: Colors.red.shade800)),
+        TextButton(onPressed: _load, child: const Text('Reintentar')),
+      ],
     ),
   );
 }

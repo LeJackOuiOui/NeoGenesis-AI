@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme/app_theme.dart';
+import '../../core/utils/app_error_handler.dart';
 import 'widgets/custom_sidebar.dart';
 import 'widgets/view_inicio.dart';
 import 'widgets/view_vacantes.dart';
@@ -138,13 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cerrar sesión: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, e, onRetry: _onLogoutPressed);
     }
   }
 

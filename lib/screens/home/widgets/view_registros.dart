@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../data/services/api_service.dart';
 import '../../../main.dart';
 
@@ -56,11 +57,7 @@ class _ViewRegistrosState extends State<ViewRegistros> {
           );
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al cargar empresas: $e')));
-      }
+      if (mounted) AppErrorHandler.show(context, e, onRetry: _loadEmpresas);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -156,11 +153,10 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       _loadEmpresas();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al verificar: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppErrorHandler.show(
+        context,
+        e,
+        onRetry: () => _verificarEmpresa(empresa),
       );
     }
   }
@@ -205,11 +201,10 @@ class _ViewRegistrosState extends State<ViewRegistros> {
       _loadEmpresas();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo eliminar: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppErrorHandler.show(
+        context,
+        e,
+        onRetry: () => _rechazarEmpresa(empresa),
       );
     }
   }

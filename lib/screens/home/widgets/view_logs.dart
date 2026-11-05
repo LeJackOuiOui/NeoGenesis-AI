@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../data/services/health_check_service.dart';
 
 class ViewLogs extends StatefulWidget {
@@ -45,11 +46,7 @@ class _ViewLogsState extends State<ViewLogs> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al cargar logs: $e')));
-      }
+      if (mounted) AppErrorHandler.show(context, e, onRetry: _cargarLogs);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/utils/app_error_handler.dart';
+
 class HrAssistantService {
   final SupabaseClient _client;
 
@@ -19,13 +21,21 @@ class HrAssistantService {
         );
       }
       return Map<String, dynamic>.from(response.data as Map);
-    } on FunctionsFetchException catch (error) {
-      throw HrAssistantException(
-        'No se pudo conectar con la función hr-assistant de Supabase. '
-        'Verifica que esté desplegada y que su configuración CORS permita '
-        'la aplicación. Detalle técnico: ${error.details}',
+    } on FunctionsFetchException {
+      throw const HrAssistantException(
+        'No pudimos conectar con el servicio. Comprueba tu conexión e inténtalo de nuevo.',
+        isNetworkTimeout: true,
       );
     } on FunctionException catch (error) {
+      if (error.status == 401 ||
+          error.status == 403 ||
+          error.status == 404 ||
+          error.status >= 500) {
+        throw HrAssistantException(
+          AppErrorHandler.messageFor(error),
+          statusCode: error.status,
+        );
+      }
       final message = _functionErrorMessage(error);
       if (message != null) throw HrAssistantException(message);
       if (error.status == 404) {
@@ -128,7 +138,7 @@ class HrAssistantService {
           'supabase/migrations/202610290001_create_hr_assistant.sql '
           'desde Supabase SQL Editor y vuelve a intentarlo.';
     }
-    return error.message;
+    return AppErrorHandler.messageFor(error);
   }
 
   String _requireUserId() {
@@ -140,11 +150,10 @@ class HrAssistantService {
   }
 }
 
-class HrAssistantException implements Exception {
-  final String message;
-
-  const HrAssistantException(this.message);
-
-  @override
-  String toString() => message;
+class HrAssistantException extends AppErrorException {
+  const HrAssistantException(
+    super.message, {
+    super.statusCode,
+    super.isNetworkTimeout,
+  });
 }

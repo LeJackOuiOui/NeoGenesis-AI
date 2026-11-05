@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../config/theme/app_theme.dart';
 import '../../../data/services/hr_assistant_service.dart';
 import '../../../main.dart';
@@ -44,7 +45,9 @@ class _ViewHrAssistantState extends State<ViewHrAssistant> {
       setState(() => _interactions = interactions);
       _scrollToBottom();
     } catch (error) {
-      if (mounted) setState(() => _loadError = error.toString());
+      if (mounted) {
+        setState(() => _loadError = AppErrorHandler.messageFor(error));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -61,11 +64,13 @@ class _ViewHrAssistantState extends State<ViewHrAssistant> {
     } catch (error) {
       if (!mounted) return;
       _questionController.text = question;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo enviar la pregunta: $error'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppErrorHandler.show(
+        context,
+        error,
+        onRetry: () async {
+          _questionController.text = question;
+          await _sendQuestion();
+        },
       );
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -169,11 +174,18 @@ class _ViewHrAssistantState extends State<ViewHrAssistant> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_outlined, size: 36, color: Colors.grey),
+              const Icon(
+                Icons.cloud_off_outlined,
+                size: 36,
+                color: Colors.grey,
+              ),
               const SizedBox(height: 12),
               Text('No se pudo cargar el historial.\n$_loadError'),
               const SizedBox(height: 12),
-              OutlinedButton(onPressed: _loadInteractions, child: const Text('Reintentar')),
+              OutlinedButton(
+                onPressed: _loadInteractions,
+                child: const Text('Reintentar'),
+              ),
             ],
           ),
         ),
@@ -192,7 +204,8 @@ class _ViewHrAssistantState extends State<ViewHrAssistant> {
           ),
           const SizedBox(height: 14),
           _buildMessage(
-            content: interaction['answer']?.toString() ??
+            content:
+                interaction['answer']?.toString() ??
                 'Tu consulta está siendo procesada.',
             isEmployee: false,
             waitingForHr: interaction['status'] == 'waiting_for_hr',
@@ -221,7 +234,11 @@ class _ViewHrAssistantState extends State<ViewHrAssistant> {
       padding: const EdgeInsets.only(top: 36, bottom: 30),
       child: Column(
         children: [
-          const Icon(Icons.auto_awesome, size: 40, color: AppTheme.primaryGreen),
+          const Icon(
+            Icons.auto_awesome,
+            size: 40,
+            color: AppTheme.primaryGreen,
+          ),
           const SizedBox(height: 14),
           const Text(
             '¿En qué podemos ayudarte?',

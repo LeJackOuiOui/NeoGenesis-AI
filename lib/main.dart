@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/utils/app_error_handler.dart';
 import 'config/theme/app_theme.dart';
 import 'package:neogenesis_ai/screens/home/home_screen.dart';
 
@@ -11,6 +12,7 @@ void main() async {
     publishableKey: 'sb_publishable_7IYM29KIJL3aF7LW42TxLg_9oYcS5xC',
   );
 
+  AppErrorHandler.install();
   runApp(const MainApp());
 }
 
@@ -23,6 +25,8 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: AppErrorHandler.navigatorKey,
+      scaffoldMessengerKey: AppErrorHandler.messengerKey,
       debugShowCheckedModeBanner: false,
       title: 'NEOGENESIS IA',
       theme: AppTheme.lightTheme,

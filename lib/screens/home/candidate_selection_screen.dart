@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:neogenesis_ai/main.dart';
 
+import '../../core/utils/app_error_handler.dart';
 import '../../data/models/candidate.dart';
 import '../../data/models/candidate_match.dart';
 import '../../data/models/candidate_selection.dart';
@@ -76,10 +77,7 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo guardar la selección: $e')),
-      );
+      AppErrorHandler.show(context, e, onRetry: _confirmSelection);
     } finally {
       if (mounted) {
         setState(() {

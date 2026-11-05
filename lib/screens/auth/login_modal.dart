@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../config/theme/app_theme.dart';
+import '../../core/utils/app_error_handler.dart';
 import '../../core/utils/validators.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/audit_service.dart';
@@ -85,22 +86,23 @@ class _LoginModalState extends State<LoginModal> {
       Navigator.pop(context);
       _showMessage('Inicio de sesión exitoso.', isError: false);
     } on AuthException catch (error) {
+      if (!mounted) return;
       await _auditService.logAuthAttempt(
         email: email,
         exitoso: false,
         detalleError: error.message,
       );
-      _showMessage(error.message, isError: true);
+      if (!mounted) return;
+      AppErrorHandler.show(context, error, onRetry: _signIn);
     } catch (error) {
+      if (!mounted) return;
       await _auditService.logAuthAttempt(
         email: email,
         exitoso: false,
         detalleError: error.toString(),
       );
-      _showMessage(
-        'No se pudo iniciar sesión. Verifica tus credenciales.',
-        isError: true,
-      );
+      if (!mounted) return;
+      AppErrorHandler.show(context, error, onRetry: _signIn);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

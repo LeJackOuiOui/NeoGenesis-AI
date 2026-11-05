@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../core/utils/validators.dart';
 import '../../../main.dart';
 
@@ -127,22 +128,10 @@ class _RegisterModalState extends State<RegisterModal> {
       );
     } on AuthException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, error, onRetry: _guardarRegistro);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'La cuenta se creó, pero no se pudo guardar el perfil: $error',
-          ),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, error, onRetry: _guardarRegistro);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../config/theme/app_theme.dart';
+import '../../../core/utils/app_error_handler.dart';
 import '../../../core/utils/validators.dart';
 import '../../../main.dart';
 
@@ -66,7 +67,9 @@ class _ViewMiCvState extends State<ViewMiCv> {
             resumeData['additional_info']?.toString() ?? '';
       }
     } catch (e) {
-      // Manejar error de carga si es necesario
+      if (mounted) {
+        AppErrorHandler.show(context, e, onRetry: _loadCandidateData);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -134,12 +137,7 @@ class _ViewMiCvState extends State<ViewMiCv> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al guardar: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppErrorHandler.show(context, e, onRetry: _saveCv);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
