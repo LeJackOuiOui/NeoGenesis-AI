@@ -215,6 +215,7 @@ class _ViewMiCvState extends State<ViewMiCv> {
                                       val,
                                       label: 'La experiencia',
                                       allowZero: true,
+                                      maximum: 100,
                                     ),
                               ),
                               const SizedBox(height: 16),
@@ -246,20 +247,19 @@ class _ViewMiCvState extends State<ViewMiCv> {
                               TextFormField(
                                 controller: _skillsController,
                                 maxLines: 2,
+                                maxLength: 1000,
                                 decoration: const InputDecoration(
                                   labelText: 'Conocimientos y Habilidades *',
                                   hintText: 'Dart, SQL, Flutter, Supabase',
                                   helperText: 'Sepáralos mediante comas (,)',
                                 ),
-                                validator: (val) => FormValidators.requiredText(
-                                  val,
-                                  label: 'Las habilidades',
-                                ),
+                                validator: FormValidators.skills,
                               ),
                               const SizedBox(height: 16),
                               TextFormField(
                                 controller: _additionalController,
                                 maxLines: 4,
+                                maxLength: 2000,
                                 decoration: const InputDecoration(
                                   labelText: 'Otra información relevante',
                                   hintText:

@@ -16,6 +16,9 @@ class _RecruiterAvailabilityScreenState
   DateTime? _selectedDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
+  String? _dateError;
+  String? _startTimeError;
+  String? _endTimeError;
   bool _isLoading = false;
 
   late Future<List<Map<String, dynamic>>> _availabilityFuture;
@@ -39,12 +42,39 @@ class _RecruiterAvailabilityScreenState
   }
 
   Future<void> _handleSave({String? editId}) async {
-    if (_selectedDate == null || _startTime == null || _endTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona fecha, hora de inicio y hora de fin'),
-        ),
-      );
+    final today = DateTime.now();
+    final normalizedToday = DateTime(today.year, today.month, today.day);
+    final normalizedLastDate = normalizedToday.add(const Duration(days: 60));
+    final normalizedDate = _selectedDate == null
+        ? null
+        : DateTime(
+            _selectedDate!.year,
+            _selectedDate!.month,
+            _selectedDate!.day,
+          );
+    setState(() {
+      _dateError = _selectedDate == null
+          ? 'Selecciona una fecha.'
+          : normalizedDate!.isBefore(normalizedToday)
+          ? 'La fecha debe ser hoy o posterior.'
+          : normalizedDate.isAfter(normalizedLastDate)
+          ? 'La fecha no puede superar los próximos 60 días.'
+          : null;
+      _startTimeError = _startTime == null
+          ? 'Selecciona la hora de inicio.'
+          : null;
+      _endTimeError = _endTime == null ? 'Selecciona la hora de fin.' : null;
+      if (_startTime != null &&
+          _endTime != null &&
+          (_endTime!.hour < _startTime!.hour ||
+              (_endTime!.hour == _startTime!.hour &&
+                  _endTime!.minute <= _startTime!.minute))) {
+        _endTimeError = 'La hora de fin debe ser posterior a la de inicio.';
+      }
+    });
+    if (_dateError != null ||
+        _startTimeError != null ||
+        _endTimeError != null) {
       return;
     }
 
@@ -82,6 +112,9 @@ class _RecruiterAvailabilityScreenState
           _selectedDate = null;
           _startTime = null;
           _endTime = null;
+          _dateError = null;
+          _startTimeError = null;
+          _endTimeError = null;
         });
         _loadData();
       }
@@ -165,13 +198,28 @@ class _RecruiterAvailabilityScreenState
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 60)),
+                  initialDate: DateUtils.dateOnly(DateTime.now()),
+                  firstDate: DateUtils.dateOnly(DateTime.now()),
+                  lastDate: DateUtils.dateOnly(
+                    DateTime.now(),
+                  ).add(const Duration(days: 60)),
                 );
-                if (picked != null) setState(() => _selectedDate = picked);
+                if (picked != null) {
+                  setState(() {
+                    _selectedDate = picked;
+                    _dateError = null;
+                  });
+                }
               },
             ),
+            if (_dateError != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _dateError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             ListTile(
               leading: const Icon(Icons.access_time),
               title: Text(
@@ -184,9 +232,23 @@ class _RecruiterAvailabilityScreenState
                   context: context,
                   initialTime: TimeOfDay.now(),
                 );
-                if (picked != null) setState(() => _startTime = picked);
+                if (picked != null) {
+                  setState(() {
+                    _startTime = picked;
+                    _startTimeError = null;
+                    _endTimeError = null;
+                  });
+                }
               },
             ),
+            if (_startTimeError != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _startTimeError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             ListTile(
               leading: const Icon(Icons.access_time_filled),
               title: Text(
@@ -199,9 +261,22 @@ class _RecruiterAvailabilityScreenState
                   context: context,
                   initialTime: TimeOfDay.now(),
                 );
-                if (picked != null) setState(() => _endTime = picked);
+                if (picked != null) {
+                  setState(() {
+                    _endTime = picked;
+                    _endTimeError = null;
+                  });
+                }
               },
             ),
+            if (_endTimeError != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _endTimeError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _isLoading ? null : () => _handleSave(),

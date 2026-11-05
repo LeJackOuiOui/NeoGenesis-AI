@@ -38,19 +38,46 @@ Deno.serve(async (request) => {
       return json({ error: 'No tienes permisos para crear usuarios' }, 403);
     }
 
-    const { name, email, phone, position, password } = await request.json();
-    if (!name || !email || !position || !password || password.length < 6) {
-      return json({ error: 'Datos de registro incompletos' }, 400);
+    const body = await request.json();
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+    const position = typeof body.position === 'string' ? body.position.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const fieldErrors: Record<string, string> = {};
+
+    if (name.length < 2 || name.length > 100 ||
+        !/^[a-zA-ZÀ-ÖØ-öø-ÿ][a-zA-ZÀ-ÖØ-öø-ÿ .'-]*$/.test(name)) {
+      fieldErrors.name = 'Ingresa un nombre válido de entre 2 y 100 caracteres.';
+    }
+    if (!isValidEmail(email)) {
+      fieldErrors.email = 'Ingresa un correo electrónico válido.';
+    } else if (!/^[a-z0-9._%+\-]+@(gmail|googlemail)\.com$/.test(email)) {
+      fieldErrors.email = 'El correo debe ser de Gmail o Google Mail.';
+    }
+    if (!phone) {
+      fieldErrors.phone = 'Ingresa el teléfono.';
+    } else if (!isValidPhone(phone)) {
+      fieldErrors.phone = 'El teléfono debe tener entre 7 y 15 dígitos.';
+    }
+    if (!position || position.length > 100) {
+      fieldErrors.position = 'El cargo es obligatorio y no puede superar 100 caracteres.';
+    }
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      fieldErrors.password = 'La contraseña debe tener al menos 8 caracteres, una letra y un número.';
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+      return json({
+        error: 'Corrige los campos indicados.',
+        fieldErrors,
+      }, 400);
     }
     const role = 'Empleado';
 
     const allowedStatuses = ['Activo', 'En Vacaciones', 'Inactivo'];
     const normalizedStatus = 'Activo';
 
-    const normalizedEmail = email.toLowerCase().trim();
-    if (!/^[a-z0-9._%+\-]+@(gmail|googlemail)\.com$/.test(normalizedEmail)) {
-      return json({ error: 'El correo debe ser de Gmail o Google Mail' }, 400);
-    }
+    const normalizedEmail = email;
 
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
@@ -107,6 +134,23 @@ Deno.serve(async (request) => {
     return json({ error: error instanceof Error ? error.message : 'Error interno' }, 500);
   }
 });
+
+function isValidEmail(value: string) {
+  if (value.length > 254) return false;
+  const [localPart, ...domainParts] = value.split('@');
+  if (domainParts.length !== 1 || localPart.length > 64 ||
+      localPart.startsWith('.') || localPart.endsWith('.') ||
+      localPart.includes('..')) return false;
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(value);
+}
+
+function isValidPhone(value: string) {
+  if (!/^[0-9+()\- ]+$/.test(value) ||
+      (value.indexOf('+') > 0) ||
+      (value.indexOf('+') !== value.lastIndexOf('+'))) return false;
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {

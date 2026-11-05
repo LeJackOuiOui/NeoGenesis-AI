@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/utils/validators.dart';
 import '../models/candidate_model.dart';
 
 class CandidateService {
@@ -30,6 +31,13 @@ class CandidateService {
     required String email,
     required String phone,
   }) async {
+    final nameError = FormValidators.personName(fullName);
+    if (nameError != null) throw ArgumentError(nameError);
+    final emailError = FormValidators.email(email, required: false);
+    if (emailError != null) throw ArgumentError(emailError);
+    final phoneError = FormValidators.phone(phone, required: false);
+    if (phoneError != null) throw ArgumentError(phoneError);
+
     final row = await client
         .from('candidatos')
         .insert({
@@ -141,6 +149,38 @@ class CandidateService {
     required String candidateId,
     required Map<String, dynamic> resumeData,
   }) async {
+    final experienceError = FormValidators.positiveNumber(
+      resumeData['experience_years']?.toString(),
+      label: 'La experiencia',
+      allowZero: true,
+      maximum: 100,
+    );
+    if (experienceError != null) throw ArgumentError(experienceError);
+    if (!const {
+      'none',
+      'secondary',
+      'technical',
+      'bachelor',
+      'postgraduate',
+      'doctorate',
+    }.contains(resumeData['education_level'])) {
+      throw ArgumentError('Selecciona un nivel de educación válido.');
+    }
+    final skills = resumeData['skills'];
+    if (skills is! List || skills.any((skill) => skill.toString().trim().isEmpty)) {
+      throw ArgumentError('Ingresa al menos una habilidad válida.');
+    }
+    final skillError = FormValidators.skills(
+      skills.map((skill) => skill.toString()).join(', '),
+    );
+    if (skillError != null) throw ArgumentError(skillError);
+    final additionalInfo = resumeData['additional_info']?.toString() ?? '';
+    if (additionalInfo.length > 2000) {
+      throw ArgumentError(
+        'La información adicional no puede superar 2000 caracteres.',
+      );
+    }
+
     await client
         .from('candidatos')
         .update({

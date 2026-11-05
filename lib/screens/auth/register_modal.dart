@@ -35,12 +35,7 @@ class _RegisterModalState extends State<RegisterModal> {
       _isRRHH ? 'Responsable de Recursos Humanos' : 'Empleado';
 
   String? _validateNit(String? value) {
-    final nit = value?.trim() ?? '';
-    if (nit.isEmpty) return 'Ingresa el NIT de la empresa.';
-    if (!RegExp(r'^\d{9,10}$').hasMatch(nit)) {
-      return 'El NIT debe tener entre 9 y 10 dígitos.';
-    }
-    return null;
+    return FormValidators.companyNit(value);
   }
 
   Widget _buildFieldLabel(String label) {

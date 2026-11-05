@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../config/theme/app_theme.dart';
@@ -314,13 +315,11 @@ class _LoginModalState extends State<LoginModal> {
                           hintText: 'NIT de la empresa',
                           prefixIcon: Icons.business_outlined,
                           keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (_isEmpresa &&
-                                (value == null || value.trim().isEmpty)) {
-                              return 'Ingresa el NIT de la empresa';
-                            }
-                            return null;
-                          },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          maxLength: 10,
+                          validator: FormValidators.companyNit,
                         ),
                         const SizedBox(height: 14),
                       ],
@@ -334,17 +333,7 @@ class _LoginModalState extends State<LoginModal> {
                         inputFormatters: [FormValidators.emailInputFormatter],
                         maxLength: 254,
                         buildCounter: _hideCounter,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Ingresa tu correo';
-                          }
-                          if (!RegExp(
-                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                          ).hasMatch(value.trim())) {
-                            return 'Ingresa un correo válido';
-                          }
-                          return null;
-                        },
+                        validator: FormValidators.email,
                       ),
                       const SizedBox(height: 14),
 
