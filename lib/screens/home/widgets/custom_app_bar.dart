@@ -38,7 +38,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               // LOGO Y TÍTULO
               _buildBrand(),
 
-              const Spacer(),
+              const Spacer(),  
 
               if (isCompact)
                 _buildCompactMenu(context)

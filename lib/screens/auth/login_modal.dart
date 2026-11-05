@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../config/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../data/services/api_service.dart';
-import '../../main.dart';
 import '../../data/services/audit_service.dart';
+import '../../main.dart';
+import '../home/widgets/custom_text_field.dart';
+import '../home/widgets/custom_button.dart';
 
 class LoginModal extends StatefulWidget {
   const LoginModal({super.key});
@@ -22,7 +25,7 @@ class _LoginModalState extends State<LoginModal> {
   late final ApiService _apiService;
   late final AuditService _auditService;
 
-  bool _isEmpresa = false; // Toggle: false = Usuario, true = Empresa
+  bool _isEmpresa = false;
   final bool _rememberMe = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -59,7 +62,7 @@ class _LoginModalState extends State<LoginModal> {
       final userProfile = await _apiService.getCurrentUserProfile();
       final currentUserId = supabase.auth.currentUser?.id;
 
-      // 3. Si seleccionó Empresa, validamos que el NIT coincida con su perfil registrado
+      // 3. Validar NIT si seleccionó Empresa
       if (_isEmpresa) {
         if (userProfile == null || userProfile.companyNit != nit) {
           await _apiService.signOut();
@@ -128,7 +131,7 @@ class _LoginModalState extends State<LoginModal> {
         constraints: const BoxConstraints(maxWidth: 850, maxHeight: 560),
         child: Row(
           children: [
-            // Panel Izquierdo Decorativo
+            // Panel izquierdo decorativo
             Expanded(
               child: Container(
                 color: AppTheme.lightGreenBg,
@@ -183,7 +186,7 @@ class _LoginModalState extends State<LoginModal> {
               ),
             ),
 
-            // Panel Derecho con Formulario y Toggle
+            // Panel derecho con formulario
             Expanded(
               child: Container(
                 color: Colors.white,
@@ -197,7 +200,7 @@ class _LoginModalState extends State<LoginModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // TOGGLE SUPERIOR (Usuario / Empresa)
+                      // Toggle Usuario / Empresa
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -304,25 +307,13 @@ class _LoginModalState extends State<LoginModal> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Campo NIT exclusivo si es empresa
+                      // Campo NIT
                       if (_isEmpresa) ...[
-                        TextFormField(
+                        CustomTextField(
                           controller: _nitController,
+                          hintText: 'NIT de la empresa',
+                          prefixIcon: Icons.business_outlined,
                           keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            hintText: 'NIT de la empresa',
-                            prefixIcon: const Icon(
-                              Icons.business_outlined,
-                              size: 20,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
-                          ),
                           validator: (value) {
                             if (_isEmpresa &&
                                 (value == null || value.trim().isEmpty)) {
@@ -334,26 +325,15 @@ class _LoginModalState extends State<LoginModal> {
                         const SizedBox(height: 14),
                       ],
 
-                      TextFormField(
+                      // Campo correo
+                      CustomTextField(
                         controller: _emailController,
+                        hintText: 'Correo electrónico',
+                        prefixIcon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                         inputFormatters: [FormValidators.emailInputFormatter],
                         maxLength: 254,
                         buildCounter: _hideCounter,
-                        decoration: InputDecoration(
-                          hintText: 'Correo electrónico',
-                          prefixIcon: const Icon(
-                            Icons.email_outlined,
-                            size: 20,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Ingresa tu correo';
@@ -368,62 +348,34 @@ class _LoginModalState extends State<LoginModal> {
                       ),
                       const SizedBox(height: 14),
 
-                      TextFormField(
+                      // Campo contraseña
+                      CustomTextField(
                         controller: _passwordController,
+                        hintText: 'Contraseña',
+                        prefixIcon: Icons.lock_outline,
                         obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          hintText: 'Contraseña',
-                          prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              size: 20,
-                            ),
-                            onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
+                        suffixIcon: _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        onSuffixPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
                         validator: (value) => value == null || value.isEmpty
                             ? 'Ingresa tu contraseña'
                             : null,
                       ),
                       const SizedBox(height: 16),
 
+                      // Botón reutilizable
                       SizedBox(
                         width: double.infinity,
                         height: 45,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _signIn,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryGreen,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  'Iniciar sesión',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
+                        child: CustomButton(
+                          text: 'Iniciar sesión',
+                          onPressed: _signIn,
+                          isLoading: _isLoading,
                         ),
                       ),
                     ],

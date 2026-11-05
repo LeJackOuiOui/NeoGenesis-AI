@@ -5,6 +5,7 @@ import '../../data/models/candidate.dart';
 import '../../data/models/candidate_match.dart';
 import '../../data/models/candidate_selection.dart';
 import '../../data/services/candidate_selection_service.dart';
+import 'widgets/custom_card.dart';
 
 class CandidateSelectionScreen extends StatefulWidget {
   final List<CandidateMatch> rankedCandidates;
@@ -188,44 +189,41 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
                     (item) => item.candidate.id == match.candidate.id,
                   );
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(child: Text('${index + 1}')),
-                      title: Text(match.candidate.name),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Score final: '
-                            '${match.finalScore.toStringAsFixed(1)}',
-                          ),
-                          if (selection.interviewEligible)
-                            const Text(
-                              'Apto para entrevista',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                        ],
-                      ),
-                      trailing: ElevatedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () {
-                                setState(() {
-                                  if (selection.selected) {
-                                    CandidateSelectionService.removeCandidate(
-                                      selection,
-                                    );
-                                  } else {
-                                    CandidateSelectionService.selectCandidate(
-                                      selection,
-                                    );
-                                  }
-                                });
-                              },
-                        child: Text(
-                          selection.selected ? 'Quitar' : 'Seleccionar',
+                  return CustomCard(
+                    leading: CircleAvatar(child: Text('${index + 1}')),
+                    title: match.candidate.name,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Score final: '
+                          '${match.finalScore.toStringAsFixed(1)}',
                         ),
+                        if (selection.interviewEligible)
+                          const Text(
+                            'Apto para entrevista',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
+                    trailing: ElevatedButton(
+                      onPressed: _isSaving
+                          ? null
+                          : () {
+                              setState(() {
+                                if (selection.selected) {
+                                  CandidateSelectionService.removeCandidate(
+                                    selection,
+                                  );
+                                } else {
+                                  CandidateSelectionService.selectCandidate(
+                                    selection,
+                                  );
+                                }
+                              });
+                            },
+                      child: Text(
+                        selection.selected ? 'Quitar' : 'Seleccionar',
                       ),
                     ),
                   );
@@ -238,34 +236,31 @@ class _CandidateSelectionScreenState extends State<CandidateSelectionScreen> {
                   ),
                   const SizedBox(height: 12),
                   ...manualSelections.map(
-                    (selection) => Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
-                        title: Text(selection.candidate.name),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Agregado manualmente'),
-                            if (selection.interviewEligible)
-                              const Text(
-                                'Apto para entrevista',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                          ],
-                        ),
-                        trailing: ElevatedButton(
-                          onPressed: _isSaving
-                              ? null
-                              : () {
-                                  setState(() {
-                                    CandidateSelectionService.removeCandidate(
-                                      selection,
-                                    );
-                                  });
-                                },
-                          child: const Text('Quitar'),
-                        ),
+                    (selection) => CustomCard(
+                      leading: const CircleAvatar(child: Icon(Icons.person)),
+                      title: selection.candidate.name,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Agregado manualmente'),
+                          if (selection.interviewEligible)
+                            const Text(
+                              'Apto para entrevista',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                        ],
+                      ),
+                      trailing: ElevatedButton(
+                        onPressed: _isSaving
+                            ? null
+                            : () {
+                                setState(() {
+                                  CandidateSelectionService.removeCandidate(
+                                    selection,
+                                  );
+                                });
+                              },
+                        child: const Text('Quitar'),
                       ),
                     ),
                   ),
