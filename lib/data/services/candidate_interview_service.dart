@@ -3,11 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class CandidateInterviewService {
   final _supabase = Supabase.instance.client;
 
-  // Obtener bloques libres del reclutador dueño de la vacante
   Future<List<Map<String, dynamic>>> getAvailableSlotsForVacancy(
     String vacancyId,
   ) async {
-    // 1. Obtener el ID del reclutador (created_by) desde la tabla 'vacantes'
     final vacancyRes = await _supabase
         .from('vacantes')
         .select('created_by')
@@ -16,7 +14,6 @@ class CandidateInterviewService {
 
     final recruiterId = vacancyRes['created_by'];
 
-    // 2. Consultar los bloques de disponibilidad que NO estén reservados
     final slots = await _supabase
         .from('recruiter_availability')
         .select()
@@ -27,7 +24,6 @@ class CandidateInterviewService {
     return List<Map<String, dynamic>>.from(slots);
   }
 
-  // Confirmar y registrar la entrevista seleccionada
   Future<void> bookInterview({
     required String vacancyId,
     required String candidateId,
@@ -35,20 +31,37 @@ class CandidateInterviewService {
     required String availabilityId,
     required DateTime scheduledDateTime,
   }) async {
-    // 1. Crear el registro en la tabla de entrevistas
-    await _supabase.from('interviews').insert({
-      'vacancy_id': vacancyId,
-      'candidate_id': candidateId,
-      'recruiter_id': recruiterId,
-      'availability_id': availabilityId,
-      'scheduled_at': scheduledDateTime.toIso8601String(),
-      'status': 'scheduled',
-    });
-
-    // 2. Marcar el bloque como reservado para que nadie más lo tome
-    await _supabase
+    // Reservar el bloque solamente si todavía está libre.
+    final reserved = await _supabase
         .from('recruiter_availability')
         .update({'is_booked': true})
-        .eq('id', availabilityId);
+        .eq('id', availabilityId)
+        .eq('recruiter_id', recruiterId)
+        .eq('is_booked', false)
+        .select('id');
+
+    if (reserved.isEmpty) {
+      throw Exception('Este horario ya fue reservado. Selecciona otro.');
+    }
+
+    try {
+      // Registrar la entrevista.
+      await _supabase.from('interviews').insert({
+        'vacancy_id': vacancyId,
+        'candidate_id': candidateId,
+        'recruiter_id': recruiterId,
+        'availability_id': availabilityId,
+        'scheduled_at': scheduledDateTime.toIso8601String(),
+        'status': 'scheduled',
+      });
+    } catch (e) {
+      // Liberar el horario si falla el registro.
+      await _supabase
+          .from('recruiter_availability')
+          .update({'is_booked': false})
+          .eq('id', availabilityId);
+
+      rethrow;
+    }
   }
 }

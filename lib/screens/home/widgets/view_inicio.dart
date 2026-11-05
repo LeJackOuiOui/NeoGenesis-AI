@@ -2,11 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../config/theme/app_theme.dart';
 import '../../../main.dart';
-import '../../../data/models/job.dart';
-import '../../../data/mock_candidates.dart';
 import '../../auth/login_modal.dart';
 import '../../auth/register_modal.dart';
-import '../candidate_ranking_screen.dart';
+import 'view_vacantes.dart';
 
 class CarouselWidget extends StatefulWidget {
   const CarouselWidget({super.key});
@@ -819,26 +817,11 @@ class _ViewInicioState extends State<ViewInicio> {
                           if (rutaModulo == '/seleccion') {
                             Navigator.of(screenContext).push(
                               MaterialPageRoute(
-                                builder: (_) => CandidateRankingScreen(
-                                  candidates: MockCandidates.all,
-                                  job: Job(
-                                    id: 'job-1',
-                                    title: 'Desarrollador Flutter',
-                                    description:
-                                        'Buscamos desarrollador Flutter con experiencia en aplicaciones móviles, Dart y Firebase.',
-                                    requiredSkills: [
-                                      'Flutter',
-                                      'Dart',
-                                      'Firebase',
-                                    ],
-                                    requiredExperienceYears: 2,
-                                  ),
-                                ),
+                                builder: (_) => const ViewVacantes(),
                               ),
                             );
                             return;
                           }
-
                           ScaffoldMessenger.of(screenContext).showSnackBar(
                             SnackBar(
                               content: Text(

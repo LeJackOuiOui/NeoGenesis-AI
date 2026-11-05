@@ -30,6 +30,7 @@ class CustomSidebar extends StatelessWidget {
     required this.onRegisterPressed,
     required this.onLogoutPressed,
   });
+
   static const _items = [
     _SidebarItem(label: 'Inicio', icon: Icons.home_outlined),
     _SidebarItem(label: 'Vacantes', icon: Icons.work_outline),
@@ -56,37 +57,51 @@ class CustomSidebar extends StatelessWidget {
                   child: IntrinsicHeight(
                     child: Column(
                       children: [
+                        // Encabezado de la barra lateral
                         SizedBox(
                           height: 68,
                           child: isExpanded
                               ? Stack(
                                   alignment: Alignment.center,
                                   children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _buildLogo(),
-                                        const SizedBox(width: 8),
-                                        RichText(
-                                          maxLines: 1,
-                                          text: TextSpan(
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            children: [
-                                              TextSpan(text: 'NEOGENESIS '),
-                                              TextSpan(
-                                                text: 'IA',
-                                                style: TextStyle(
-                                                  color: AppTheme.primaryGreen,
+                                    Positioned.fill(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 8,
+                                          right: 44,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            _buildLogo(),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: RichText(
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                text: TextSpan(
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  children: [
+                                                    const TextSpan(
+                                                      text: 'NEOGENESIS ',
+                                                    ),
+                                                    TextSpan(
+                                                      text: 'IA',
+                                                      style: TextStyle(
+                                                        color: AppTheme
+                                                            .primaryGreen,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
                                     ),
                                     Positioned(
                                       right: 4,
@@ -113,20 +128,24 @@ class CustomSidebar extends StatelessWidget {
                                   ),
                                 ),
                         ),
+
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Divider(
                             color: Colors.white.withValues(alpha: 0.12),
                           ),
                         ),
+
                         const SizedBox(height: 10),
+
                         if (isLoggedIn) ...[
-                          // Inicio (Índice 0)
+                          // Inicio
                           _buildNavigationItem(context, _items[0], 0),
-                          // Vacantes (Índice 1)
+
+                          // Vacantes
                           _buildNavigationItem(context, _items[1], 1),
 
-                          // Mi Hoja de Vida - SOLO para usuarios normales (Índice 2)
+                          // Mi Hoja de Vida
                           if (!isAdmin && !isRRHH)
                             _buildNavigationItem(
                               context,
@@ -136,6 +155,8 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               2,
                             ),
+
+                          // Asistente RRHH
                           if (!isAdmin && !isRRHH)
                             _buildNavigationItem(
                               context,
@@ -146,14 +167,14 @@ class CustomSidebar extends StatelessWidget {
                               4,
                             ),
 
-                          // Perfil (Índice 3 para usuarios normales, Índice 2 para empresas/admins)
+                          // Perfil
                           _buildNavigationItem(
                             context,
                             _items[2],
                             (!isAdmin && !isRRHH) ? 3 : 2,
                           ),
 
-                          // Vistas de Administrador
+                          // Vistas de administrador
                           if (isAdmin)
                             _buildNavigationItem(
                               context,
@@ -163,6 +184,7 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               4,
                             ),
+
                           if (isAdmin)
                             _buildNavigationItem(
                               context,
@@ -172,6 +194,7 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               5,
                             ),
+
                           if (isAdmin || isRRHH)
                             _buildNavigationItem(
                               context,
@@ -181,6 +204,7 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               6,
                             ),
+
                           if (isAdmin || isRRHH || isRecruiter)
                             _buildNavigationItem(
                               context,
@@ -190,6 +214,7 @@ class CustomSidebar extends StatelessWidget {
                               ),
                               7,
                             ),
+
                           if (isAdmin || isRRHH || isRecruiter)
                             _buildNavigationItem(
                               context,
@@ -201,10 +226,12 @@ class CustomSidebar extends StatelessWidget {
                             ),
 
                           const Spacer(),
+
                           _buildLogoutButton(context),
                         ] else ...[
                           const Spacer(),
-                          // Muestra Iniciar Sesión / Registrarse SOLO si NO ha iniciado sesión
+
+                          // Opciones para usuarios sin sesión
                           if (isExpanded) ...[
                             Padding(
                               padding: const EdgeInsets.symmetric(
@@ -214,6 +241,7 @@ class CustomSidebar extends StatelessWidget {
                                 color: Colors.white.withValues(alpha: 0.12),
                               ),
                             ),
+
                             Padding(
                               padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
                               child: SizedBox(
@@ -239,6 +267,7 @@ class CustomSidebar extends StatelessWidget {
                                 ),
                               ),
                             ),
+
                             Padding(
                               padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
                               child: SizedBox(
@@ -277,6 +306,7 @@ class CustomSidebar extends StatelessWidget {
                                 ),
                               ),
                             ),
+
                             SizedBox(
                               width: double.infinity,
                               height: 44,
@@ -295,6 +325,7 @@ class CustomSidebar extends StatelessWidget {
                             ),
                           ],
                         ],
+
                         const SizedBox(height: 12),
                       ],
                     ),
@@ -374,6 +405,7 @@ class CustomSidebar extends StatelessWidget {
                     )
                   else
                     Center(child: Icon(item.icon, size: 20, color: foreground)),
+
                   if (isSelected && isExpanded)
                     Positioned(
                       left: 0,
